@@ -1,0 +1,157 @@
+import {
+  Action,
+  ActionPanel,
+  Form,
+  Icon,
+  Toast,
+  getPreferenceValues,
+  showToast,
+  useNavigation,
+} from "@raycast/api";
+import { getAccessToken, useCachedPromise, withAccessToken } from "@raycast/utils";
+import { useMemo, useState } from "react";
+import * as api from "./api";
+import { createGoogleOAuthService } from "./google-auth";
+import { rememberTaskListId } from "./storage";
+import { SetupView } from "./setup-view";
+import type { TaskList } from "./types";
+
+function dueDateToRFC3339(date: Date | null | undefined): string | undefined {
+  if (!date) return undefined;
+  const y = date.getFullYear();
+  const m = date.getMonth();
+  const d = date.getDate();
+  return new Date(Date.UTC(y, m, d, 0, 0, 0, 0)).toISOString();
+}
+
+function CreateTaskForm({ lists }: { lists: TaskList[] }) {
+  const { token } = getAccessToken();
+  const { pop } = useNavigation();
+
+  const defaultListId = lists.find((l) => l.id)?.id ?? "";
+  const [listId, setListId] = useState(defaultListId);
+
+  const { data: tasksData, isLoading: tasksLoading } = useCachedPromise(
+    async (accessToken: string, lid: string) => {
+      if (!lid) return { items: [] };
+      return api.getTasks(accessToken, lid, { maxResults: 100, showCompleted: false });
+    },
+    [token, listId],
+    { execute: listId.length > 0 },
+  );
+
+  const parentCandidates = tasksData?.items?.filter((t) => t.id && !t.parent) ?? [];
+
+  async function handleSubmit(values: {
+    title: string;
+    notes: string;
+    due: Date | null;
+    listId: string;
+    parentId: string;
+  }) {
+    const title = values.title.trim();
+    if (!title) {
+      await showToast({ style: Toast.Style.Failure, title: "Title is required" });
+      return;
+    }
+    const lid = values.listId || defaultListId;
+    if (!lid) {
+      await showToast({ style: Toast.Style.Failure, title: "No task list available" });
+      return;
+    }
+
+    try {
+      await api.createTask(token, lid, {
+        title,
+        notes: values.notes.trim() || undefined,
+        due: dueDateToRFC3339(values.due),
+        parent: values.parentId && values.parentId !== "__none__" ? values.parentId : undefined,
+      });
+      await rememberTaskListId(lid);
+      await showToast({ style: Toast.Style.Success, title: "Task created" });
+      pop();
+    } catch (e) {
+      await showToast({
+        style: Toast.Style.Failure,
+        title: "Could not create task",
+        message: e instanceof Error ? e.message : String(e),
+      });
+    }
+  }
+
+  const listItems = lists.filter((l) => l.id);
+
+  return (
+    <Form
+      navigationTitle="Create Task"
+      isLoading={tasksLoading && listId.length > 0}
+      actions={
+        <ActionPanel>
+          <Action.SubmitForm title="Create" icon={Icon.Plus} onSubmit={handleSubmit} />
+        </ActionPanel>
+      }
+    >
+      <Form.TextField id="title" title="Title" placeholder="What needs doing?" />
+      <Form.TextArea id="notes" title="Notes" enableMarkdown />
+      <Form.DatePicker id="due" title="Due" type={Form.DatePicker.Type.Date} />
+      <Form.Dropdown id="listId" title="List" defaultValue={defaultListId} onChange={setListId}>
+        {listItems.map((l) => (
+          <Form.Dropdown.Item key={l.id} value={l.id!} title={l.title ?? "Untitled"} />
+        ))}
+      </Form.Dropdown>
+      <Form.Dropdown id="parentId" title="Parent task" defaultValue="__none__">
+        <Form.Dropdown.Item value="__none__" title="None" />
+        {parentCandidates.map((t) => (
+          <Form.Dropdown.Item key={t.id} value={t.id!} title={t.title ?? "(No title)"} />
+        ))}
+      </Form.Dropdown>
+    </Form>
+  );
+}
+
+function AuthenticatedCreateView() {
+  const { token } = getAccessToken();
+  const { data, isLoading } = useCachedPromise(
+    async (accessToken: string) => api.getTaskLists(accessToken, { maxResults: 100 }),
+    [token],
+    { failureToastOptions: { title: "Could not load lists" } },
+  );
+
+  const lists = useMemo(() => data?.items ?? [], [data]);
+
+  if (isLoading) {
+    return <Form navigationTitle="Create Task" isLoading />;
+  }
+
+  if (lists.length === 0) {
+    return (
+      <Form navigationTitle="Create Task">
+        <Form.Description title="" text="No task lists found. Create one in Google Tasks first." />
+      </Form>
+    );
+  }
+
+  return <CreateTaskForm lists={lists} />;
+}
+
+function CreateCommandWrapper() {
+  return <AuthenticatedCreateView />;
+}
+
+export default function CreateTaskCommand() {
+  const { googleClientId } = getPreferenceValues<Preferences>();
+  const trimmed = (googleClientId ?? "").trim();
+  const oauthService = useMemo(
+    () => (trimmed.length > 0 ? createGoogleOAuthService(trimmed) : null),
+    [trimmed],
+  );
+  const Authorized = useMemo(() => {
+    if (!oauthService) return null;
+    return withAccessToken(oauthService)(CreateCommandWrapper);
+  }, [oauthService]);
+
+  if (!Authorized) {
+    return <SetupView />;
+  }
+  return <Authorized />;
+}

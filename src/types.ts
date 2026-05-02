@@ -12,6 +12,8 @@ export interface Task {
   id?: string;
   etag?: string;
   title?: string;
+  /** Output only in API — useful for sorting undated tasks */
+  updated?: string;
   notes?: string;
   status?: "needsAction" | "completed";
   due?: string;

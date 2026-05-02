@@ -29,6 +29,45 @@
       "title": "Google Tasks",
       "description": "Manage your Google Tasks",
       "mode": "view"
+    },
+    {
+      "name": "create-task",
+      "title": "Create Task",
+      "description": "Create a task with title, notes, due date, and optional parent",
+      "mode": "view"
+    },
+    {
+      "name": "quick-add",
+      "title": "Quick Add Task",
+      "description": "Add a task using arguments (optional ISO due date)",
+      "mode": "view",
+      "arguments": [
+        {
+          "name": "title",
+          "type": "text",
+          "placeholder": "Task title",
+          "required": true
+        },
+        {
+          "name": "due",
+          "type": "text",
+          "placeholder": "Optional due (e.g. 2026-05-15)",
+          "required": false
+        }
+      ]
+    },
+    {
+      "name": "edit-task",
+      "title": "Edit Task",
+      "description": "Pick a task from a list and edit it",
+      "mode": "view"
+    },
+    {
+      "name": "menu-bar",
+      "title": "Today's Tasks",
+      "description": "Today’s tasks in the menu bar",
+      "mode": "menu-bar",
+      "interval": "10m"
     }
   ],
   "scripts": {

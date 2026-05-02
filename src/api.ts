@@ -226,3 +226,27 @@ export async function clearCompletedTasks(accessToken: string, taskListId: strin
     { method: "POST" },
   );
 }
+
+const MENU_BAR_TASK_FETCH_PAGES = 15;
+
+/**
+ * Pages through `tasks.list` until no `nextPageToken` or max pages (menu bar / broad filters).
+ */
+export async function getTasksAllPages(
+  accessToken: string,
+  taskListId: string,
+  baseParams: Omit<ListTasksParams, "pageToken">,
+): Promise<Task[]> {
+  const items: Task[] = [];
+  let pageToken: string | undefined;
+  for (let i = 0; i < MENU_BAR_TASK_FETCH_PAGES; i++) {
+    const res = await getTasks(accessToken, taskListId, {
+      ...baseParams,
+      pageToken,
+    });
+    items.push(...(res.items ?? []));
+    if (!res.nextPageToken) break;
+    pageToken = res.nextPageToken;
+  }
+  return items;
+}
