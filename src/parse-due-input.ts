@@ -1,5 +1,10 @@
 import * as chrono from "chrono-node";
 
+/**
+ * Google Tasks REST only records the calendar day on `due`; the time portion is discarded on write.
+ * This module always encodes that day (chrono’s time-of-day is ignored on purpose).
+ */
+
 /** chrono misses bare "end of day" / "eod"; map to phrasing it understands. */
 function normalizeNaturalDueInput(text: string): string {
   const t = text.trim();

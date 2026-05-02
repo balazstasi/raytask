@@ -39,7 +39,7 @@
     {
       "name": "quick-add",
       "title": "Quick Add Task",
-      "description": "Add a task using arguments (optional due: natural language or ISO date)",
+      "description": "Add a task using arguments (optional due date: natural language or ISO date; time is not saved by the API)",
       "mode": "view",
       "arguments": [
         {
@@ -51,7 +51,7 @@
         {
           "name": "due",
           "type": "text",
-          "placeholder": "Optional due: tomorrow, next Friday, EOD, or 2026-05-15",
+          "placeholder": "Optional due date only: tomorrow, next Friday, EOD, or 2026-05-15",
           "required": false
         }
       ]

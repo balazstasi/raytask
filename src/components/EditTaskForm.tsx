@@ -52,7 +52,7 @@ export function EditTaskForm({ taskListId, task, lists, onSaved }: EditTaskFormP
         await showToast({
           style: Toast.Style.Failure,
           title: "Could not parse due date",
-          message: "Try a phrase like “tomorrow” or a date like 2026-05-15.",
+          message: "Try a phrase like “tomorrow” or a calendar date like 2026-05-15 (dates only; time is not saved).",
         });
         return;
       }
@@ -112,10 +112,14 @@ export function EditTaskForm({ taskListId, task, lists, onSaved }: EditTaskFormP
     >
       <Form.TextField id="title" title="Title" defaultValue={task.title ?? ""} />
       <Form.TextArea id="notes" title="Notes" defaultValue={task.notes ?? ""} />
+      <Form.Description
+        title="Due date"
+        text="Only the calendar day is stored: the public Google Tasks API ignores time on due. See https://developers.google.com/workspace/tasks/reference/rest/v1/tasks#Task.FIELDS.string.due"
+      />
       <Form.TextField
         id="dueNatural"
         title="Due (natural language)"
-        placeholder="Optional: overrides calendar — tomorrow, next Friday, end of day…"
+        placeholder="Optional: overrides calendar — e.g. tomorrow, next Friday, EOD (date only)"
       />
       <Form.DatePicker id="due" title="Due (calendar)" type={Form.DatePicker.Type.Date} defaultValue={initialDue} />
       <Form.Dropdown id="status" title="Status" defaultValue={task.status === "completed" ? "completed" : "needsAction"}>
