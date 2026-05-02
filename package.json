@@ -39,7 +39,7 @@
     {
       "name": "quick-add",
       "title": "Quick Add Task",
-      "description": "Add a task using arguments (optional ISO due date)",
+      "description": "Add a task using arguments (optional due: natural language or ISO date)",
       "mode": "view",
       "arguments": [
         {
@@ -51,7 +51,7 @@
         {
           "name": "due",
           "type": "text",
-          "placeholder": "Optional due (e.g. 2026-05-15)",
+          "placeholder": "Optional due: tomorrow, next Friday, EOD, or 2026-05-15",
           "required": false
         }
       ]
@@ -78,7 +78,8 @@
   },
   "dependencies": {
     "@raycast/api": "^1.104.15",
-    "@raycast/utils": "^2.2.4"
+    "@raycast/utils": "^2.2.4",
+    "chrono-node": "^2.9.0"
   },
   "devDependencies": {
     "@types/node": "^22.13.10",

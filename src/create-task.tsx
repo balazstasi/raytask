@@ -12,17 +12,10 @@ import { getAccessToken, useCachedPromise, withAccessToken } from "@raycast/util
 import { useMemo, useState } from "react";
 import * as api from "./api";
 import { createGoogleOAuthService } from "./google-auth";
+import { dateToDueRFC3339, parseDueInput } from "./parse-due-input";
 import { rememberTaskListId } from "./storage";
 import { SetupView } from "./setup-view";
 import type { TaskList } from "./types";
-
-function dueDateToRFC3339(date: Date | null | undefined): string | undefined {
-  if (!date) return undefined;
-  const y = date.getFullYear();
-  const m = date.getMonth();
-  const d = date.getDate();
-  return new Date(Date.UTC(y, m, d, 0, 0, 0, 0)).toISOString();
-}
 
 function CreateTaskForm({ lists }: { lists: TaskList[] }) {
   const { token } = getAccessToken();
@@ -46,6 +39,7 @@ function CreateTaskForm({ lists }: { lists: TaskList[] }) {
     title: string;
     notes: string;
     due: Date | null;
+    dueNatural: string;
     listId: string;
     parentId: string;
   }) {
@@ -60,11 +54,28 @@ function CreateTaskForm({ lists }: { lists: TaskList[] }) {
       return;
     }
 
+    const dueNatural = values.dueNatural.trim();
+    let dueIso: string | undefined;
+    if (dueNatural) {
+      const parsed = parseDueInput(dueNatural);
+      if (!parsed) {
+        await showToast({
+          style: Toast.Style.Failure,
+          title: "Could not parse due date",
+          message: "Try a phrase like “tomorrow” or a date like 2026-05-15.",
+        });
+        return;
+      }
+      dueIso = parsed;
+    } else {
+      dueIso = values.due ? dateToDueRFC3339(values.due) : undefined;
+    }
+
     try {
       await api.createTask(token, lid, {
         title,
         notes: values.notes.trim() || undefined,
-        due: dueDateToRFC3339(values.due),
+        due: dueIso,
         parent: values.parentId && values.parentId !== "__none__" ? values.parentId : undefined,
       });
       await rememberTaskListId(lid);
@@ -93,7 +104,12 @@ function CreateTaskForm({ lists }: { lists: TaskList[] }) {
     >
       <Form.TextField id="title" title="Title" placeholder="What needs doing?" />
       <Form.TextArea id="notes" title="Notes" enableMarkdown />
-      <Form.DatePicker id="due" title="Due" type={Form.DatePicker.Type.Date} />
+      <Form.TextField
+        id="dueNatural"
+        title="Due (natural language)"
+        placeholder="Optional: tomorrow at 3pm, next Friday, end of day…"
+      />
+      <Form.DatePicker id="due" title="Due (calendar)" type={Form.DatePicker.Type.Date} />
       <Form.Dropdown id="listId" title="List" defaultValue={defaultListId} onChange={setListId}>
         {listItems.map((l) => (
           <Form.Dropdown.Item key={l.id} value={l.id!} title={l.title ?? "Untitled"} />

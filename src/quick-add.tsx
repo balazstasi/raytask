@@ -10,22 +10,14 @@ import { getAccessToken, useCachedPromise, withAccessToken } from "@raycast/util
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as api from "./api";
 import { createGoogleOAuthService } from "./google-auth";
+import { parseDueInput } from "./parse-due-input";
 import { getRememberedTaskListId, rememberTaskListId } from "./storage";
 import { SetupView } from "./setup-view";
-
-function parseOptionalDue(iso: string | undefined): string | undefined {
-  if (!iso?.trim()) return undefined;
-  const d = new Date(iso.trim());
-  if (Number.isNaN(d.getTime())) {
-    return undefined;
-  }
-  return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0)).toISOString();
-}
 
 function QuickAddInner(props: LaunchProps<{ arguments: Arguments.QuickAdd }>) {
   const { token } = getAccessToken();
   const titleArg = props.arguments.title?.trim() ?? "";
-  const dueParsed = parseOptionalDue(props.arguments.due);
+  const dueParsed = parseDueInput(props.arguments.due);
 
   const ran = useRef(false);
   const [busy, setBusy] = useState(true);
