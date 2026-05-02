@@ -14,6 +14,7 @@ import { getAccessToken, useCachedPromise } from "@raycast/utils";
 import { useMemo, useState } from "react";
 import * as api from "../api";
 import { EditTaskForm } from "../components/EditTaskForm";
+import { looksLikeDailyRepeatTask } from "../menu-bar-task-filter";
 import { moveTaskToAnotherList } from "../move-task";
 import { buildTaskDetailMarkdown, formatTaskSubtitle, matchesTaskSearch } from "../task-format";
 import { getTasksParamsForFilter, taskFilterLabel, type TaskFilter } from "../task-filters";
@@ -96,9 +97,12 @@ export function TasksView({ taskList, allLists, onListsChanged }: TasksViewProps
 
   async function removeTask(task: Task) {
     if (!task.id) return;
+    const repeatingCaveat = looksLikeDailyRepeatTask(task)
+      ? `\n\nThis may only remove today's instance if the task repeats in Google Tasks. To delete the whole series or turn off repeat, use "Open in Google Tasks".`
+      : "";
     const ok = await confirmAlert({
       title: "Delete this task?",
-      message: task.title ?? "",
+      message: `${task.title ?? ""}${repeatingCaveat}`,
       primaryAction: { title: "Delete", style: Alert.ActionStyle.Destructive },
     });
     if (!ok) return;
@@ -201,12 +205,18 @@ export function TasksView({ taskList, allLists, onListsChanged }: TasksViewProps
                         actions={
                           <ActionPanel>
                             <Action title="Back" icon={Icon.ArrowLeft} onAction={() => pop()} />
+                            {task.webViewLink ? (
+                              <Action.OpenInBrowser title="Open in Google Tasks" url={task.webViewLink} />
+                            ) : null}
                           </ActionPanel>
                         }
                       />,
                     )
                   }
                 />
+                {task.webViewLink ? (
+                  <Action.OpenInBrowser title="Open in Google Tasks" url={task.webViewLink} />
+                ) : null}
                 <Action
                   title="Edit"
                   icon={Icon.Pencil}
