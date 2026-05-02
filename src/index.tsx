@@ -1,7 +1,17 @@
-import { Action, ActionPanel, Detail, getPreferenceValues, openExtensionPreferences } from "@raycast/api";
-import { getAccessToken, withAccessToken } from "@raycast/utils";
+import {
+  Action,
+  ActionPanel,
+  Detail,
+  Icon,
+  List,
+  getPreferenceValues,
+  openExtensionPreferences,
+} from "@raycast/api";
+import { getAccessToken, useCachedPromise, withAccessToken } from "@raycast/utils";
 import { useMemo } from "react";
+import * as api from "./api";
 import { createGoogleOAuthService } from "./google-auth";
+import type { Task } from "./types";
 
 const setupMarkdown = `
 # Connect Google Tasks
@@ -32,13 +42,145 @@ function SetupView() {
   );
 }
 
+function formatTaskSubtitle(task: Task): string | undefined {
+  const parts: string[] = [];
+  if (task.status === "completed") {
+    parts.push("Completed");
+  }
+  if (task.due) {
+    try {
+      parts.push(new Date(task.due).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }));
+    } catch {
+      parts.push(task.due);
+    }
+  }
+  return parts.length > 0 ? parts.join(" · ") : undefined;
+}
+
 function AuthenticatedView() {
   const { token } = getAccessToken();
-  const preview = token.length <= 16 ? token : `${token.slice(0, 12)}…`;
+
+  const {
+    isLoading: listsLoading,
+    data: listsData,
+    revalidate: revalidateLists,
+  } = useCachedPromise(
+    async (accessToken: string) => api.getTaskLists(accessToken, { maxResults: 100 }),
+    [token],
+    {
+      failureToastOptions: {
+        title: "Could not load task lists",
+      },
+    },
+  );
+
+  const taskLists = listsData?.items ?? [];
+  const primaryList = taskLists.find((l) => l.id) ?? null;
+  const primaryListId = primaryList?.id ?? "";
+
+  const {
+    isLoading: tasksLoading,
+    data: tasksData,
+    revalidate: revalidateTasks,
+  } = useCachedPromise(
+    async (accessToken: string, listId: string) => {
+      if (!listId) {
+        return { items: [] };
+      }
+      return api.getTasks(accessToken, listId, {
+        maxResults: 60,
+        showCompleted: true,
+      });
+    },
+    [token, primaryListId],
+    {
+      execute: primaryListId.length > 0,
+      failureToastOptions: {
+        title: "Could not load tasks",
+      },
+    },
+  );
+
+  const tasks = tasksData?.items ?? [];
+
+  const isLoading = listsLoading || (primaryListId.length > 0 && tasksLoading);
+
+  const reload = () => {
+    revalidateLists();
+    revalidateTasks();
+  };
+
   return (
-    <Detail
-      markdown={`# Connected to Google Tasks\n\nAccess token (preview): \`${preview}\`\n\n_API integration comes in Phase 3._`}
-    />
+    <List
+      navigationTitle="Google Tasks"
+      isLoading={isLoading}
+      actions={
+        <ActionPanel>
+          <Action title="Reload" icon={Icon.ArrowClockwise} onAction={reload} />
+        </ActionPanel>
+      }
+    >
+      {taskLists.length === 0 && !listsLoading ? (
+        <List.EmptyView
+          icon={Icon.Tray}
+          title="No task lists"
+          description="Create a list in Google Tasks, then reload."
+          actions={
+            <ActionPanel>
+              <Action title="Reload" icon={Icon.ArrowClockwise} onAction={reload} />
+            </ActionPanel>
+          }
+        />
+      ) : (
+        <List.Section title="Task lists">
+          {taskLists.map((list) => (
+            <List.Item
+              key={list.id ?? list.title}
+              icon={Icon.List}
+              title={list.title || "Untitled list"}
+              subtitle={list.id === primaryListId ? "Showing tasks below" : undefined}
+              actions={
+                <ActionPanel>
+                  <Action title="Reload" icon={Icon.ArrowClockwise} onAction={reload} />
+                </ActionPanel>
+              }
+            />
+          ))}
+        </List.Section>
+      )}
+
+      {primaryList && (
+        <List.Section title={`Tasks — ${primaryList.title ?? "Untitled list"}`}>
+          {tasks.length === 0 && !tasksLoading ? (
+            <List.Item
+              icon={Icon.Tray}
+              title="No tasks in this list"
+              subtitle="Add tasks in Google Tasks or reload."
+              actions={
+                <ActionPanel>
+                  <Action title="Reload" icon={Icon.ArrowClockwise} onAction={reload} />
+                </ActionPanel>
+              }
+            />
+          ) : (
+            tasks.map((task) => (
+              <List.Item
+                key={task.id ?? task.title}
+                icon={task.status === "completed" ? Icon.Checkmark : Icon.Circle}
+                title={task.title ?? "(No title)"}
+                subtitle={formatTaskSubtitle(task)}
+                accessories={task.notes ? [{ icon: Icon.TextDocument, tooltip: task.notes }] : undefined}
+                actions={
+                  <ActionPanel>
+                    <Action title="Reload" icon={Icon.ArrowClockwise} onAction={reload} />
+                  </ActionPanel>
+                }
+              />
+            ))
+          )}
+        </List.Section>
+      )}
+    </List>
   );
 }
 
