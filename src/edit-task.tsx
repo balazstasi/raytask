@@ -15,6 +15,7 @@ import { createGoogleOAuthService } from "./google-auth";
 import { getRememberedTaskListId, rememberTaskListId } from "./storage";
 import { formatTaskRowSubtitle, matchesTaskSearch } from "./task-format";
 import { directChildCountsInSet, formatHierarchyListTitle, indexTasksById, orderTasksForList, resolvedParentDisplayTitle } from "./task-hierarchy";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { SetupView } from "./setup-view";
 
 function EditTaskAuthenticatedView() {
@@ -173,7 +174,11 @@ function EditTaskAuthenticatedView() {
 }
 
 function EditWrapper() {
-  return <EditTaskAuthenticatedView />;
+  return (
+    <ErrorBoundary>
+      <EditTaskAuthenticatedView />
+    </ErrorBoundary>
+  );
 }
 
 export default function EditTaskCommand() {

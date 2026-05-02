@@ -13,6 +13,16 @@ export class GoogleTasksHttpError extends Error {
   }
 }
 
+export class GoogleTasksNetworkError extends Error {
+  constructor(
+    message: string,
+    public readonly cause?: unknown,
+  ) {
+    super(message);
+    this.name = "GoogleTasksNetworkError";
+  }
+}
+
 async function parseResponse<T>(res: Response): Promise<T> {
   if (res.status === 204) {
     return undefined as T;
@@ -21,7 +31,11 @@ async function parseResponse<T>(res: Response): Promise<T> {
   if (!text.trim()) {
     return undefined as T;
   }
-  return JSON.parse(text) as T;
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    throw new GoogleTasksHttpError(res.status, "Invalid response from Google Tasks API");
+  }
 }
 
 export async function googleTasksRequest<T>(
@@ -36,10 +50,17 @@ export async function googleTasksRequest<T>(
   if (hasBody && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }
-  const res = await fetch(url, {
-    ...init,
-    headers,
-  });
+
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      ...init,
+      headers,
+    });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Network error. Check your connection.";
+    throw new GoogleTasksNetworkError(message, e);
+  }
 
   let bodyPayload: GoogleTasksApiErrorBody | undefined;
   if (!res.ok) {

@@ -12,6 +12,8 @@ import * as api from "./api";
 import { createGoogleOAuthService } from "./google-auth";
 import { parseDueInput } from "./parse-due-input";
 import { getRememberedTaskListId, rememberTaskListId } from "./storage";
+import { showErrorToast } from "./error-utils";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { SetupView } from "./setup-view";
 
 function QuickAddInner(props: LaunchProps<{ arguments: Arguments.QuickAdd }>) {
@@ -61,11 +63,8 @@ function QuickAddInner(props: LaunchProps<{ arguments: Arguments.QuickAdd }>) {
         await rememberTaskListId(listId);
         await showToast({ style: Toast.Style.Success, title: "Task added" });
       } catch (e) {
-        await showToast({
-          style: Toast.Style.Failure,
-          title: "Could not create task",
-          message: e instanceof Error ? e.message : String(e),
-        });
+        await showErrorToast(e, "Could not create task");
+        await new Promise((r) => setTimeout(r, 2000));
       } finally {
         setBusy(false);
         await popToRoot();
@@ -75,7 +74,11 @@ function QuickAddInner(props: LaunchProps<{ arguments: Arguments.QuickAdd }>) {
 
   const markdown = titleArg ? `Adding **${titleArg}**…` : `# Quick Add\n\nMissing title argument.`;
 
-  return <Detail markdown={markdown} isLoading={listsLoading || busy} />;
+  return (
+    <ErrorBoundary>
+      <Detail markdown={markdown} isLoading={listsLoading || busy} />
+    </ErrorBoundary>
+  );
 }
 
 export default function QuickAddCommand(props: LaunchProps<{ arguments: Arguments.QuickAdd }>) {

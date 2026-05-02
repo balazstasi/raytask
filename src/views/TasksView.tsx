@@ -20,6 +20,7 @@ import { moveTaskToAnotherList } from "../move-task";
 import { buildTaskDetailMarkdown, formatTaskRowSubtitle, matchesTaskSearch } from "../task-format";
 import { directChildCountsInSet, formatHierarchyListTitle, indexTasksById, orderTasksForList, resolvedParentDisplayTitle } from "../task-hierarchy";
 import { getTasksParamsForFilter, taskFilterLabel, type TaskFilter } from "../task-filters";
+import { showErrorToast } from "../error-utils";
 import type { Task, TaskList } from "../types";
 
 export type TasksViewProps = {
@@ -98,11 +99,7 @@ export function TasksView({ taskList, allLists, onListsChanged }: TasksViewProps
       await revalidateTasks();
       onListsChanged?.();
     } catch (e) {
-      await showToast({
-        style: Toast.Style.Failure,
-        title: "Could not update task",
-        message: e instanceof Error ? e.message : String(e),
-      });
+      await showErrorToast(e, "Could not update task");
     }
   }
 
@@ -123,11 +120,7 @@ export function TasksView({ taskList, allLists, onListsChanged }: TasksViewProps
       await revalidateTasks();
       onListsChanged?.();
     } catch (e) {
-      await showToast({
-        style: Toast.Style.Failure,
-        title: "Could not delete task",
-        message: e instanceof Error ? e.message : String(e),
-      });
+      await showErrorToast(e, "Could not delete task");
     }
   }
 
@@ -139,11 +132,7 @@ export function TasksView({ taskList, allLists, onListsChanged }: TasksViewProps
       await revalidateTasks();
       onListsChanged?.();
     } catch (e) {
-      await showToast({
-        style: Toast.Style.Failure,
-        title: "Could not move task",
-        message: e instanceof Error ? e.message : String(e),
-      });
+      await showErrorToast(e, "Could not move task");
     }
   }
 

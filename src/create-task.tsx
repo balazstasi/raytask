@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import * as api from "./api";
 import { CreateTaskForm } from "./components/CreateTaskForm";
 import { createGoogleOAuthService } from "./google-auth";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { SetupView } from "./setup-view";
 
 function AuthenticatedCreateView() {
@@ -32,7 +33,11 @@ function AuthenticatedCreateView() {
 }
 
 function CreateCommandWrapper() {
-  return <AuthenticatedCreateView />;
+  return (
+    <ErrorBoundary>
+      <AuthenticatedCreateView />
+    </ErrorBoundary>
+  );
 }
 
 export default function CreateTaskCommand() {

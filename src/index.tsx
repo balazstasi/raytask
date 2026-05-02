@@ -2,11 +2,16 @@ import { getPreferenceValues } from "@raycast/api";
 import { useMemo } from "react";
 import { withAccessToken } from "@raycast/utils";
 import { createGoogleOAuthService } from "./google-auth";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { SetupView } from "./setup-view";
 import { TaskListsView } from "./views/TaskListsView";
 
 function AuthenticatedMain() {
-  return <TaskListsView />;
+  return (
+    <ErrorBoundary>
+      <TaskListsView />
+    </ErrorBoundary>
+  );
 }
 
 export default function Command() {

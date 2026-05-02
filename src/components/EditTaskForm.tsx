@@ -5,6 +5,7 @@ import * as api from "../api";
 import { moveTaskToAnotherList } from "../move-task";
 import { indexTasksById } from "../task-hierarchy";
 import { dateToDueRFC3339, parseDueInput } from "../parse-due-input";
+import { showErrorToast } from "../error-utils";
 import type { Task, TaskList } from "../types";
 
 export type EditTaskFormProps = {
@@ -102,11 +103,7 @@ export function EditTaskForm({ taskListId, task, lists, relationshipContext, onS
       onSaved?.();
       pop();
     } catch (e) {
-      await showToast({
-        style: Toast.Style.Failure,
-        title: "Could not save task",
-        message: e instanceof Error ? e.message : String(e),
-      });
+      await showErrorToast(e, "Could not save task");
     }
   }
 

@@ -12,6 +12,7 @@ import { useMemo, useState } from "react";
 import * as api from "../api";
 import { dateToDueRFC3339, parseDueInput } from "../parse-due-input";
 import { rememberTaskListId } from "../storage";
+import { showErrorToast } from "../error-utils";
 import type { Task, TaskList } from "../types";
 
 export type CreateTaskFormProps = {
@@ -103,11 +104,7 @@ export function CreateTaskForm({ lists, initialListId, lockedParent, onSaved }: 
       onSaved?.();
       pop();
     } catch (e) {
-      await showToast({
-        style: Toast.Style.Failure,
-        title: "Could not create task",
-        message: e instanceof Error ? e.message : String(e),
-      });
+      await showErrorToast(e, "Could not create task");
     }
   }
 

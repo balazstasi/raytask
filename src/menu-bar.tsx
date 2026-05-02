@@ -20,6 +20,8 @@ import {
 } from "./menu-bar-task-filter";
 import { getRememberedTaskListId } from "./storage";
 import { indexTasksById, resolvedParentDisplayTitle } from "./task-hierarchy";
+import { showErrorToast } from "./error-utils";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import type { Task, TaskList } from "./types";
 
 async function resolveDefaultListId(lists: TaskList[]): Promise<string> {
@@ -105,11 +107,7 @@ function MenuBarView() {
         }
         await revalidateTasks();
       } catch (e) {
-        await showToast({
-          style: Toast.Style.Failure,
-          title: done ? "Could not reopen task" : "Could not complete task",
-          message: e instanceof Error ? e.message : String(e),
-        });
+        await showErrorToast(e, done ? "Could not reopen task" : "Could not complete task");
       }
     },
     [token, listId, revalidateTasks],
@@ -163,7 +161,11 @@ function MenuBarView() {
 }
 
 function MenuBarWrapper() {
-  return <MenuBarView />;
+  return (
+    <ErrorBoundary>
+      <MenuBarView />
+    </ErrorBoundary>
+  );
 }
 
 export default function MenuBarCommand() {
