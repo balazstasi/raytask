@@ -1,0 +1,49 @@
+{
+  "$schema": "https://www.raycast.com/schemas/extension.json",
+  "name": "raytask",
+  "title": "RayTask",
+  "description": "A Google Tasks integration for Raycast",
+  "icon": "icon.png",
+  "author": "balazstasi",
+  "version": "1.0.0",
+  "license": "MIT",
+  "categories": [
+    "Productivity"
+  ],
+  "platforms": [
+    "macOS"
+  ],
+  "preferences": [
+    {
+      "name": "googleClientId",
+      "type": "password",
+      "required": false,
+      "title": "Google OAuth Client ID",
+      "description": "From Google Cloud Console: Credentials → OAuth client (iOS, Bundle ID com.raycast). See Raycast guide: developers.raycast.com/utilities/oauth/getting-google-client-id",
+      "placeholder": "xxxx.apps.googleusercontent.com"
+    }
+  ],
+  "commands": [
+    {
+      "name": "index",
+      "title": "Google Tasks",
+      "description": "Manage your Google Tasks",
+      "mode": "view"
+    }
+  ],
+  "scripts": {
+    "build": "ray build -e dist",
+    "dev": "ray develop",
+    "lint": "ray lint",
+    "fix": "ray lint --fix"
+  },
+  "dependencies": {
+    "@raycast/api": "^1.104.15",
+    "@raycast/utils": "^2.2.4"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.10",
+    "@types/react": "^19.0.10",
+    "typescript": "^5.8.2"
+  }
+}
