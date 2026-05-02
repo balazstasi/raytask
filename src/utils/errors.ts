@@ -1,5 +1,5 @@
 import { Toast, openExtensionPreferences, showToast } from "@raycast/api";
-import { GoogleTasksHttpError, GoogleTasksNetworkError } from "./api";
+import { GoogleTasksHttpError, GoogleTasksNetworkError } from "../services/google-tasks/client";
 
 /**
  * Displays a user-friendly toast for any API or network error.

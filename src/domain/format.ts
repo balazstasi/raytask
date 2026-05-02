@@ -1,5 +1,5 @@
-import { truncateMiddle } from "./task-hierarchy";
-import type { Task } from "./types";
+import { truncateMiddle } from "./hierarchy";
+import type { Task } from "../types";
 
 const MAX_DETAIL_TITLE_CHARS = 80;
 

@@ -1,4 +1,4 @@
-import type { Task } from "./types";
+import type { Task } from "../types";
 
 /**
  * Google Tasks stores `due` as RFC3339 but only the calendar date matters.
@@ -32,7 +32,7 @@ export function looksLikeDailyRepeatTask(task: Task): boolean {
 }
 
 /**
- * Menu bar agenda for “today”:
+ * Menu bar agenda for "today":
  * - Tasks with a due date on or before today (today + overdue), open or completed.
  * - Open tasks with no due date that look like daily repeats (API cannot expose real recurrence).
  */

@@ -1,4 +1,4 @@
-import type { ListTasksParams } from "./api";
+import type { ListTasksParams } from "../services/google-tasks/api";
 
 export type TaskFilter = "all" | "today" | "upcoming" | "completed";
 
@@ -23,7 +23,7 @@ function localDayBoundsUtcIso(day: Date): { dueMin: string; dueMax: string } {
   return { dueMin: start.toISOString(), dueMax: end.toISOString() };
 }
 
-/** Start of “tomorrow” in local calendar (exclusive end of today for upcoming). */
+/** Start of "tomorrow" in local calendar (exclusive end of today for upcoming). */
 function localTomorrowStartIso(): string {
   const now = new Date();
   const t = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0, 0);
@@ -31,7 +31,7 @@ function localTomorrowStartIso(): string {
 }
 
 export function getTasksParamsForFilter(filter: TaskFilter): ListTasksParams {
-  /** Required alongside showCompleted so completed tasks still appear in API results (incl. first‑party “hidden” semantics). */
+  /** Required alongside showCompleted so completed tasks still appear in API results (incl. first-party "hidden" semantics). */
   const base: ListTasksParams = { maxResults: 100, showHidden: true };
 
   switch (filter) {

@@ -1,11 +1,11 @@
 import { Action, ActionPanel, Form, Icon, Toast, showToast, useNavigation } from "@raycast/api";
 import { getAccessToken } from "@raycast/utils";
 import { useMemo } from "react";
-import * as api from "../api";
-import { moveTaskToAnotherList } from "../move-task";
-import { indexTasksById } from "../task-hierarchy";
-import { dateToDueRFC3339, parseDueInput } from "../parse-due-input";
-import { showErrorToast } from "../error-utils";
+import * as api from "../services/google-tasks/api";
+import { moveTaskToAnotherList } from "../domain/move";
+import { indexTasksById } from "../domain/hierarchy";
+import { dateToDueRFC3339, parseDueInput } from "../utils/date";
+import { showErrorToast } from "../utils/errors";
 import type { Task, TaskList } from "../types";
 
 export type EditTaskFormProps = {

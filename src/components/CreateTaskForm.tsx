@@ -9,10 +9,10 @@ import {
 } from "@raycast/api";
 import { getAccessToken, useCachedPromise } from "@raycast/utils";
 import { useMemo, useState } from "react";
-import * as api from "../api";
-import { dateToDueRFC3339, parseDueInput } from "../parse-due-input";
-import { rememberTaskListId } from "../storage";
-import { showErrorToast } from "../error-utils";
+import * as api from "../services/google-tasks/api";
+import { dateToDueRFC3339, parseDueInput } from "../utils/date";
+import { rememberTaskListId } from "../utils/storage";
+import { showErrorToast } from "../utils/errors";
 import type { Task, TaskList } from "../types";
 
 export type CreateTaskFormProps = {

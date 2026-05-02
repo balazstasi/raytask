@@ -1,5 +1,5 @@
-import * as api from "./api";
-import type { Task } from "./types";
+import * as api from "../services/google-tasks/api";
+import type { Task } from "../types";
 
 /**
  * Google Tasks `tasks.move` only reorders within one list. Cross-list "move" is implemented as

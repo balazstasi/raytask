@@ -1,8 +1,8 @@
 import { Action, ActionPanel, Icon, Keyboard, List, useNavigation } from "@raycast/api";
 import { getAccessToken, useCachedPromise } from "@raycast/utils";
 import { useMemo } from "react";
-import * as api from "../api";
-import { rememberTaskListId } from "../storage";
+import * as api from "../services/google-tasks/api";
+import { rememberTaskListId } from "../utils/storage";
 import { TasksView } from "./TasksView";
 
 export function TaskListsView() {

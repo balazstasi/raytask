@@ -12,15 +12,15 @@ import {
 } from "@raycast/api";
 import { getAccessToken, useCachedPromise } from "@raycast/utils";
 import { useMemo, useState } from "react";
-import * as api from "../api";
+import * as api from "../services/google-tasks/api";
 import { CreateTaskForm } from "../components/CreateTaskForm";
 import { EditTaskForm } from "../components/EditTaskForm";
-import { looksLikeDailyRepeatTask } from "../menu-bar-task-filter";
-import { moveTaskToAnotherList } from "../move-task";
-import { buildTaskDetailMarkdown, formatTaskRowSubtitle, matchesTaskSearch } from "../task-format";
-import { directChildCountsInSet, formatHierarchyListTitle, indexTasksById, orderTasksForList, resolvedParentDisplayTitle } from "../task-hierarchy";
-import { getTasksParamsForFilter, taskFilterLabel, type TaskFilter } from "../task-filters";
-import { showErrorToast } from "../error-utils";
+import { looksLikeDailyRepeatTask } from "../domain/menu-bar-filter";
+import { moveTaskToAnotherList } from "../domain/move";
+import { buildTaskDetailMarkdown, formatTaskRowSubtitle, matchesTaskSearch } from "../domain/format";
+import { directChildCountsInSet, formatHierarchyListTitle, indexTasksById, orderTasksForList, resolvedParentDisplayTitle } from "../domain/hierarchy";
+import { getTasksParamsForFilter, taskFilterLabel, type TaskFilter } from "../domain/filters";
+import { showErrorToast } from "../utils/errors";
 import type { Task, TaskList } from "../types";
 
 export type TasksViewProps = {
