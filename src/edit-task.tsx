@@ -9,10 +9,12 @@ import {
 import { getAccessToken, useCachedPromise, withAccessToken } from "@raycast/utils";
 import { useEffect, useMemo, useState } from "react";
 import * as api from "./api";
+import { CreateTaskForm } from "./components/CreateTaskForm";
 import { EditTaskForm } from "./components/EditTaskForm";
 import { createGoogleOAuthService } from "./google-auth";
 import { getRememberedTaskListId, rememberTaskListId } from "./storage";
-import { formatTaskSubtitle, matchesTaskSearch } from "./task-format";
+import { formatTaskRowSubtitle, matchesTaskSearch } from "./task-format";
+import { directChildCountsInSet, formatHierarchyListTitle, indexTasksById, orderTasksForList, resolvedParentDisplayTitle } from "./task-hierarchy";
 import { SetupView } from "./setup-view";
 
 function EditTaskAuthenticatedView() {
@@ -57,7 +59,15 @@ function EditTaskAuthenticatedView() {
   );
 
   const tasks = tasksData?.items ?? [];
-  const visibleTasks = tasks.filter((t) => matchesTaskSearch(t, searchText));
+  const taskByIdScope = useMemo(() => indexTasksById(tasks), [tasks]);
+  const idsInScope = useMemo(() => new Set(tasks.flatMap((t) => (t.id ? [t.id] : []))), [tasks]);
+
+  const visibleTasks = useMemo(
+    () => tasks.filter((t) => matchesTaskSearch(t, searchText, taskByIdScope)),
+    [tasks, searchText, taskByIdScope],
+  );
+  const tasksRowsOrdered = useMemo(() => orderTasksForList(visibleTasks), [visibleTasks]);
+  const visibleChildCounts = useMemo(() => directChildCountsInSet(visibleTasks), [visibleTasks]);
 
   const listsWithIds = lists.filter((l) => l.id);
 
@@ -106,12 +116,17 @@ function EditTaskAuthenticatedView() {
       ) : !tasksLoading && listId && visibleTasks.length === 0 ? (
         <List.EmptyView icon={Icon.Tray} title="No matching tasks" />
       ) : (
-        visibleTasks.map((task) => (
+        tasksRowsOrdered.map(({ task, depth }) => (
           <List.Item
             key={task.id ?? task.title}
             icon={task.status === "completed" ? Icon.Checkmark : Icon.Circle}
-            title={task.title ?? "(No title)"}
-            subtitle={formatTaskSubtitle(task)}
+            title={formatHierarchyListTitle(depth, task.title ?? "")}
+            subtitle={formatTaskRowSubtitle(task, resolvedParentDisplayTitle(task, taskByIdScope, idsInScope))}
+            accessories={
+              task.id && (visibleChildCounts.get(task.id) ?? 0) > 0 ?
+                [{ icon: Icon.List, tag: String(visibleChildCounts.get(task.id)), tooltip: "Subtasks in this list/search" }]
+              : undefined
+            }
             actions={
               <ActionPanel>
                 <Action
@@ -123,11 +138,31 @@ function EditTaskAuthenticatedView() {
                         taskListId={listId}
                         task={task}
                         lists={lists}
+                        relationshipContext={tasks}
                         onSaved={() => void revalidateTasks()}
                       />,
                     )
                   }
                 />
+                {!task.parent && task.id ? (
+                  <Action
+                    title="Add Subtask"
+                    icon={Icon.PlusCircle}
+                    onAction={() =>
+                      push(
+                        <CreateTaskForm
+                          lists={lists}
+                          initialListId={listId}
+                          lockedParent={{
+                            id: task.id!,
+                            title: task.title ?? "(No title)",
+                          }}
+                          onSaved={() => void revalidateTasks()}
+                        />,
+                      )
+                    }
+                  />
+                ) : null}
               </ActionPanel>
             }
           />

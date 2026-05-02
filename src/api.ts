@@ -139,17 +139,31 @@ export async function getTasks(
   );
 }
 
+/**
+ * Creates a task. **`parent` is sent as the insert query parameter** (`?parent=`); the Tasks API
+ * marks `parent` on the Task resource as output-only, so it is ignored if placed in the JSON body.
+ * @see https://developers.google.com/tasks/reference/rest/v1/tasks/insert
+ */
 export async function createTask(
   accessToken: string,
   taskListId: string,
   task: Partial<Task> & { title: string },
 ): Promise<Task> {
+  const { parent, ...body } = task;
+
+  const search = new URLSearchParams();
+  if (parent !== undefined && parent !== "") {
+    search.set("parent", parent);
+  }
+
+  const q = search.toString();
+
   return googleTasksRequest<Task>(
     accessToken,
-    `/lists/${encodeURIComponent(taskListId)}/tasks`,
+    `/lists/${encodeURIComponent(taskListId)}/tasks${q ? `?${q}` : ""}`,
     {
       method: "POST",
-      body: JSON.stringify(task),
+      body: JSON.stringify(body),
     },
   );
 }

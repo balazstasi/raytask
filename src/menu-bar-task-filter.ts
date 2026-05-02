@@ -76,16 +76,28 @@ export function sortTasksForMenuBarToday(a: Task, b: Task, today: string = today
   return (a.position ?? "").localeCompare(b.position ?? "");
 }
 
-export function menuBarRowSubtitle(task: Task, today: string = todayLocalCalendarDate()): string {
+/** @param parentTitle — trimmed parent task title when showing a subtask in the menu bar */
+export function menuBarRowSubtitle(
+  task: Task,
+  today: string = todayLocalCalendarDate(),
+  parentTitle?: string,
+): string {
+  let base: string;
   if (task.status === "completed") {
-    return "Tap to mark open";
+    base = "Tap to mark open";
+  } else {
+    const dp = dueCalendarDatePrefix(task.due);
+    if (!dp) {
+      base = looksLikeDailyRepeatTask(task) ? "Daily habit (no due date)" : "No due date";
+    } else if (dp < today) {
+      base = "Overdue";
+    } else {
+      base = "Due today";
+    }
   }
-  const dp = dueCalendarDatePrefix(task.due);
-  if (!dp) {
-    return looksLikeDailyRepeatTask(task) ? "Daily habit (no due date)" : "No due date";
-  }
-  if (dp < today) {
-    return "Overdue";
-  }
-  return "Due today";
+  const trimmedParent = parentTitle?.trim();
+  if (!trimmedParent) return base;
+  const short =
+    trimmedParent.length > 32 ? `${trimmedParent.slice(0, 29).trimEnd()}…` : trimmedParent;
+  return `Under: ${short} · ${base}`;
 }

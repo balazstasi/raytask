@@ -19,6 +19,7 @@ import {
   todayLocalCalendarDate,
 } from "./menu-bar-task-filter";
 import { getRememberedTaskListId } from "./storage";
+import { indexTasksById, resolvedParentDisplayTitle } from "./task-hierarchy";
 import type { Task, TaskList } from "./types";
 
 async function resolveDefaultListId(lists: TaskList[]): Promise<string> {
@@ -76,6 +77,12 @@ function MenuBarView() {
   );
 
   const tasks = tasksData?.items ?? [];
+
+  const tasksByIdMenu = useMemo(() => indexTasksById(tasks), [tasks]);
+  const taskIdsMenu = useMemo(
+    () => new Set(tasks.flatMap((t) => (t.id ? [t.id] : []))),
+    [tasks],
+  );
 
   const agendaToday = todayLocalCalendarDate();
 
@@ -139,8 +146,8 @@ function MenuBarView() {
             <MenuBarExtra.Item
               key={t.id}
               icon={completed ? Icon.Checkmark : Icon.Circle}
-              title={t.title ?? "(No title)"}
-              subtitle={menuBarRowSubtitle(t, agendaToday)}
+              title={t.parent ? `↳ ${t.title ?? "(No title)"}` : (t.title ?? "(No title)")}
+              subtitle={menuBarRowSubtitle(t, agendaToday, resolvedParentDisplayTitle(t, tasksByIdMenu, taskIdsMenu))}
               tooltip={
                 completed
                   ? "Completed — click to reopen"

@@ -3,6 +3,7 @@ import { getAccessToken } from "@raycast/utils";
 import { useMemo } from "react";
 import * as api from "../api";
 import { moveTaskToAnotherList } from "../move-task";
+import { indexTasksById } from "../task-hierarchy";
 import { dateToDueRFC3339, parseDueInput } from "../parse-due-input";
 import type { Task, TaskList } from "../types";
 
@@ -10,6 +11,8 @@ export type EditTaskFormProps = {
   taskListId: string;
   task: Task;
   lists: TaskList[];
+  /** Tasks in the same list (e.g. current filter scope) to resolve parent titles. */
+  relationshipContext?: Task[];
   onSaved?: () => void;
 };
 
@@ -25,10 +28,18 @@ function calendarDayKey(d: Date | null): number | null {
   return Date.UTC(d.getFullYear(), d.getMonth(), d.getDate());
 }
 
-export function EditTaskForm({ taskListId, task, lists, onSaved }: EditTaskFormProps) {
+export function EditTaskForm({ taskListId, task, lists, relationshipContext, onSaved }: EditTaskFormProps) {
   const { token } = getAccessToken();
   const { pop } = useNavigation();
   const initialDue = useMemo(() => dueIsoToLocalDate(task.due), [task.due]);
+
+  const parentTaskLabel = useMemo(() => {
+    if (!task.parent) return null;
+    const byId = relationshipContext?.length ? indexTasksById(relationshipContext) : null;
+    const t = byId?.get(task.parent)?.title?.trim();
+    if (t) return t;
+    return "Not in the current list or filter — open Google Tasks.";
+  }, [task.parent, relationshipContext]);
 
   async function handleSubmit(values: {
     title: string;
@@ -110,6 +121,7 @@ export function EditTaskForm({ taskListId, task, lists, onSaved }: EditTaskFormP
         </ActionPanel>
       }
     >
+      {parentTaskLabel ? <Form.Description title="Parent task" text={parentTaskLabel} /> : null}
       <Form.TextField id="title" title="Title" defaultValue={task.title ?? ""} />
       <Form.TextArea id="notes" title="Notes" defaultValue={task.notes ?? ""} />
       <Form.Description

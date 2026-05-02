@@ -1,4 +1,7 @@
+import { truncateMiddle } from "./task-hierarchy";
 import type { Task } from "./types";
+
+const MAX_DETAIL_TITLE_CHARS = 80;
 
 function isUtcMidnight(d: Date): boolean {
   return (
@@ -42,8 +45,28 @@ export function formatTaskSubtitle(task: Task): string | undefined {
   return parts.length > 0 ? parts.join(" · ") : undefined;
 }
 
-export function buildTaskDetailMarkdown(task: Task): string {
+export function formatTaskRowSubtitle(task: Task, parentDisplayTitle?: string): string | undefined {
+  const base = formatTaskSubtitle(task);
+  const under =
+    parentDisplayTitle ?
+      `Under: ${truncateMiddle(parentDisplayTitle, 40)}`
+    : undefined;
+  if (under && base) return `${under} · ${base}`;
+  if (under) return under;
+  return base;
+}
+
+function sortTasksByPosition(a: Task, b: Task): number {
+  return (a.position ?? "").localeCompare(b.position ?? "");
+}
+
+export function buildTaskDetailMarkdown(task: Task, relationTasks?: Task[]): string {
   const lines: string[] = [`# ${task.title ?? "(No title)"}`, ""];
+  const byId =
+    relationTasks && relationTasks.length > 0 ?
+      new Map(relationTasks.flatMap((t) => (t.id ? ([[t.id, t]] as const) : [])))
+    : undefined;
+
   if (task.status === "completed") {
     lines.push("**Status:** Completed");
   } else {
@@ -64,16 +87,45 @@ export function buildTaskDetailMarkdown(task: Task): string {
   if (task.webViewLink) {
     lines.push(`**Link:** ${task.webViewLink}`);
   }
+
+  if (byId && task.parent) {
+    const p = byId.get(task.parent);
+    if (p?.title?.trim()) {
+      lines.push(`**Parent:** ${truncateMiddle(p.title.trim(), MAX_DETAIL_TITLE_CHARS)}`);
+    } else {
+      lines.push("**Parent:** _Not visible in current filter — open Google Tasks or change filter to see link._");
+    }
+  }
+
+  if (byId && task.id) {
+    const children = relationTasks!.filter((t) => t.parent === task.id).sort(sortTasksByPosition);
+    if (children.length > 0) {
+      lines.push("");
+      lines.push("## Subtasks");
+      for (const c of children) {
+        const mark = c.status === "completed" ? "~" : "";
+        const tl = truncateMiddle((c.title ?? "(No title)").trim(), MAX_DETAIL_TITLE_CHARS);
+        lines.push(`- ${mark}${tl}${mark}`);
+      }
+    }
+  }
+
   lines.push("");
   lines.push("## Notes");
   lines.push(task.notes?.trim() ? task.notes : "_No notes_");
   return lines.join("\n");
 }
 
-export function matchesTaskSearch(task: Task, query: string): boolean {
+export function matchesTaskSearch(task: Task, query: string, taskById?: Map<string, Task>): boolean {
   const q = query.trim().toLowerCase();
   if (!q) return true;
   const title = (task.title ?? "").toLowerCase();
   const notes = (task.notes ?? "").toLowerCase();
-  return title.includes(q) || notes.includes(q);
+  if (title.includes(q) || notes.includes(q)) return true;
+  if (task.parent && taskById) {
+    const parent = taskById.get(task.parent);
+    const pt = (parent?.title ?? "").trim().toLowerCase();
+    if (pt.includes(q)) return true;
+  }
+  return false;
 }

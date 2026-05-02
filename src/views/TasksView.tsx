@@ -13,10 +13,12 @@ import {
 import { getAccessToken, useCachedPromise } from "@raycast/utils";
 import { useMemo, useState } from "react";
 import * as api from "../api";
+import { CreateTaskForm } from "../components/CreateTaskForm";
 import { EditTaskForm } from "../components/EditTaskForm";
 import { looksLikeDailyRepeatTask } from "../menu-bar-task-filter";
 import { moveTaskToAnotherList } from "../move-task";
-import { buildTaskDetailMarkdown, formatTaskSubtitle, matchesTaskSearch } from "../task-format";
+import { buildTaskDetailMarkdown, formatTaskRowSubtitle, matchesTaskSearch } from "../task-format";
+import { directChildCountsInSet, formatHierarchyListTitle, indexTasksById, orderTasksForList, resolvedParentDisplayTitle } from "../task-hierarchy";
 import { getTasksParamsForFilter, taskFilterLabel, type TaskFilter } from "../task-filters";
 import type { Task, TaskList } from "../types";
 
@@ -66,9 +68,18 @@ export function TasksView({ taskList, allLists, onListsChanged }: TasksViewProps
     return tasksRaw;
   }, [tasksRaw, filter]);
 
+  const taskByIdForFilterScope = useMemo(() => indexTasksById(tasksFilteredByMode), [tasksFilteredByMode]);
+  const idsInFilterScope = useMemo(
+    () => new Set(tasksFilteredByMode.flatMap((t) => (t.id ? [t.id] : []))),
+    [tasksFilteredByMode],
+  );
+
   const tasksVisible = useMemo(() => {
-    return tasksFilteredByMode.filter((t) => matchesTaskSearch(t, searchText));
-  }, [tasksFilteredByMode, searchText]);
+    return tasksFilteredByMode.filter((t) => matchesTaskSearch(t, searchText, taskByIdForFilterScope));
+  }, [tasksFilteredByMode, searchText, taskByIdForFilterScope]);
+
+  const tasksRowsOrdered = useMemo(() => orderTasksForList(tasksVisible), [tasksVisible]);
+  const visibleChildCounts = useMemo(() => directChildCountsInSet(tasksVisible), [tasksVisible]);
 
   const otherLists = useMemo(
     () => allLists.filter((l) => l.id && l.id !== taskListId),
@@ -178,14 +189,31 @@ export function TasksView({ taskList, allLists, onListsChanged }: TasksViewProps
           }
         />
       ) : (
-        tasksVisible.map((task) => (
+        tasksRowsOrdered.map(({ task, depth }) => {
+          const rowAccessories = [
+            ...(task.id && (visibleChildCounts.get(task.id) ?? 0) > 0 ?
+              [
+                  {
+                    icon: Icon.List,
+                    tag: String(visibleChildCounts.get(task.id)),
+                    tooltip: "Subtasks in this list/search",
+                  },
+                ]
+              : []),
+            ...(task.notes ? [{ icon: Icon.TextDocument, tooltip: task.notes }] : []),
+          ];
+
+          return (
           <List.Item
             key={task.id ?? `${task.title}-${task.position}`}
             id={task.id}
             icon={task.status === "completed" ? Icon.Checkmark : Icon.Circle}
-            title={task.title ?? "(No title)"}
-            subtitle={formatTaskSubtitle(task)}
-            accessories={task.notes ? [{ icon: Icon.TextDocument, tooltip: task.notes }] : undefined}
+            title={formatHierarchyListTitle(depth, task.title ?? "")}
+            subtitle={formatTaskRowSubtitle(
+              task,
+              resolvedParentDisplayTitle(task, taskByIdForFilterScope, idsInFilterScope),
+            )}
+            accessories={rowAccessories.length > 0 ? rowAccessories : undefined}
             actions={
               <ActionPanel>
                 <Action
@@ -201,7 +229,7 @@ export function TasksView({ taskList, allLists, onListsChanged }: TasksViewProps
                     push(
                       <Detail
                         navigationTitle={task.title ?? "Task"}
-                        markdown={buildTaskDetailMarkdown(task)}
+                        markdown={buildTaskDetailMarkdown(task, tasksFilteredByMode)}
                         actions={
                           <ActionPanel>
                             <Action title="Back" icon={Icon.ArrowLeft} onAction={() => pop()} />
@@ -226,6 +254,7 @@ export function TasksView({ taskList, allLists, onListsChanged }: TasksViewProps
                         taskListId={taskListId}
                         task={task}
                         lists={allLists}
+                        relationshipContext={tasksFilteredByMode}
                         onSaved={() => {
                           void revalidateTasks();
                           onListsChanged?.();
@@ -235,6 +264,29 @@ export function TasksView({ taskList, allLists, onListsChanged }: TasksViewProps
                   }
                   shortcut={{ modifiers: ["cmd"], key: "e" }}
                 />
+                {!task.parent && task.id ? (
+                  <Action
+                    title="Add Subtask"
+                    icon={Icon.PlusCircle}
+                    shortcut={{ modifiers: ["shift", "cmd"], key: "n" }}
+                    onAction={() =>
+                      push(
+                        <CreateTaskForm
+                          lists={allLists}
+                          initialListId={taskListId}
+                          lockedParent={{
+                            id: task.id!,
+                            title: task.title ?? "(No title)",
+                          }}
+                          onSaved={() => {
+                            void revalidateTasks();
+                            onListsChanged?.();
+                          }}
+                        />,
+                      )
+                    }
+                  />
+                ) : null}
                 <ActionPanel.Section title="Move">
                   {otherLists.map((l) => (
                     <Action
@@ -255,7 +307,8 @@ export function TasksView({ taskList, allLists, onListsChanged }: TasksViewProps
               </ActionPanel>
             }
           />
-        ))
+          );
+        })
       )}
     </List>
   );
