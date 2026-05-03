@@ -6,7 +6,7 @@ import { moveTaskToAnotherListEffect } from "../domain/move";
 import { indexTasksById } from "../domain/hierarchy";
 import { dateToDueRFC3339, parseDueInput } from "../utils/date";
 import { runEffectWithToast } from "../utils/effect-bridge";
-import type { Task, TaskList } from "../types";
+import type { Task, TaskList } from "../services/google-tasks/schema";
 
 export type EditTaskFormProps = {
   taskListId: string;
@@ -83,7 +83,7 @@ export function EditTaskForm({ taskListId, task, lists, relationshipContext, onS
         due: dueDayChanged ? newDueIso : task.due,
         status: values.status === "completed" ? "completed" : "needsAction",
       };
-      effect = moveTaskToAnotherListEffect(token, taskListId, values.listId, updated);
+      effect = moveTaskToAnotherListEffect(taskListId, values.listId, updated);
     } else {
       if (!task.id) {
         await showToast({ style: Toast.Style.Failure, title: "Task has no id" });
@@ -97,11 +97,11 @@ export function EditTaskForm({ taskListId, task, lists, relationshipContext, onS
       if (dueDayChanged) {
         patch.due = newDueIso ?? undefined;
       }
-      effect = api.patchTaskEffect(token, taskListId, task.id, patch);
+      effect = api.patchTaskEffect(taskListId, task.id, patch);
     }
 
     try {
-      await runEffectWithToast(effect, { successTitle: "Task updated", errorTitle: "Could not save task" });
+      await runEffectWithToast(token, effect, { successTitle: "Task updated", errorTitle: "Could not save task" });
       onSaved?.();
       pop();
     } catch {

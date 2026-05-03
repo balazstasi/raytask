@@ -5,7 +5,7 @@ import { runEffectPromise } from "../utils/effect-bridge";
 export function useTaskLists() {
   const { token } = getAccessToken();
   return useCachedPromise(
-    async (accessToken: string) => runEffectPromise(getTaskListsEffect(accessToken, { maxResults: 100 })),
+    async (accessToken: string) => runEffectPromise(accessToken, getTaskListsEffect({ maxResults: 100 })),
     [token],
     { failureToastOptions: { title: "Could not load lists" } },
   );

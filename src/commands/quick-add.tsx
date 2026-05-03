@@ -22,7 +22,7 @@ function QuickAddInner(props: LaunchProps<{ arguments: Arguments.QuickAdd }>) {
   const [busy, setBusy] = useState(true);
 
   const { data: listsData, isLoading: listsLoading } = useCachedPromise(
-    async (accessToken: string) => runEffectPromise(api.getTaskListsEffect(accessToken, { maxResults: 100 })),
+    async (accessToken: string) => runEffectPromise(accessToken, api.getTaskListsEffect({ maxResults: 100 })),
     [token],
     { failureToastOptions: { title: "Could not load lists" } },
   );
@@ -55,7 +55,8 @@ function QuickAddInner(props: LaunchProps<{ arguments: Arguments.QuickAdd }>) {
 
         try {
           await runEffectWithToast(
-            api.createTaskEffect(token, listId, { title: titleArg, due: dueParsed }),
+            token,
+            api.createTaskEffect(listId, { title: titleArg, due: dueParsed }),
             { successTitle: "Task added", errorTitle: "Could not create task" },
           );
           await rememberTaskListId(listId);

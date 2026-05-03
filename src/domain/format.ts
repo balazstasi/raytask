@@ -1,5 +1,5 @@
 import { truncateMiddle } from "./hierarchy";
-import type { Task } from "../types";
+import type { Task } from "../services/google-tasks/schema";
 
 const MAX_DETAIL_TITLE_CHARS = 80;
 

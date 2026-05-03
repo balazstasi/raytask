@@ -1,5 +1,5 @@
 import { Data } from "effect";
-import type { GoogleTasksApiErrorBody } from "../../types";
+import type { GoogleTasksApiErrorBody } from "./schema";
 
 /**
  * HTTP error from the Google Tasks API (non-2xx status code).

@@ -15,7 +15,7 @@ export function TaskListsView() {
     data: listsData,
     revalidate: revalidateLists,
   } = useCachedPromise(
-    async (accessToken: string) => runEffectPromise(getTaskListsEffect(accessToken, { maxResults: 100 })),
+    async (accessToken: string) => runEffectPromise(accessToken, getTaskListsEffect({ maxResults: 100 })),
     [token],
     {
       failureToastOptions: {

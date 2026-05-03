@@ -13,7 +13,7 @@ import * as api from "../services/google-tasks/api";
 import { dateToDueRFC3339, parseDueInput } from "../utils/date";
 import { rememberTaskListId } from "../utils/storage";
 import { runEffectPromise, runEffectWithToast } from "../utils/effect-bridge";
-import type { Task, TaskList } from "../types";
+import type { Task, TaskList } from "../services/google-tasks/schema";
 
 export type CreateTaskFormProps = {
   lists: TaskList[];
@@ -41,7 +41,7 @@ export function CreateTaskForm({ lists, initialListId, lockedParent, onSaved }: 
   const { data: tasksData, isLoading: tasksLoading } = useCachedPromise(
     async (accessToken: string, lid: string) => {
       if (!lid || lockedParent) return { items: [] as Task[] };
-      return runEffectPromise(api.getTasksEffect(accessToken, lid, { maxResults: 100, showCompleted: false }));
+      return runEffectPromise(accessToken, api.getTasksEffect(lid, { maxResults: 100, showCompleted: false }));
     },
     [token, listId],
     { execute: listId.length > 0 && !lockedParent },
@@ -91,7 +91,8 @@ export function CreateTaskForm({ lists, initialListId, lockedParent, onSaved }: 
 
     try {
       await runEffectWithToast(
-        api.createTaskEffect(token, lid, {
+        token,
+        api.createTaskEffect(lid, {
           title,
           notes: values.notes.trim() || undefined,
           due: dueIso,

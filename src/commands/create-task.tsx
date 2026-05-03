@@ -9,7 +9,7 @@ import { runEffectPromise } from "../utils/effect-bridge";
 function AuthenticatedCreateView() {
   const { token } = getAccessToken();
   const { data, isLoading } = useCachedPromise(
-    async (accessToken: string) => runEffectPromise(getTaskListsEffect(accessToken, { maxResults: 100 })),
+    async (accessToken: string) => runEffectPromise(accessToken, getTaskListsEffect({ maxResults: 100 })),
     [token],
     { failureToastOptions: { title: "Could not load lists" } },
   );

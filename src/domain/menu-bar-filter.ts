@@ -1,4 +1,4 @@
-import type { Task } from "../types";
+import type { Task } from "../services/google-tasks/schema";
 
 /**
  * Google Tasks stores `due` as RFC3339 but only the calendar date matters.

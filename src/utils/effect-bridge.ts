@@ -1,5 +1,6 @@
 import { Effect } from "effect";
 import { Toast, openExtensionPreferences, showToast } from "@raycast/api";
+import { GoogleTasksClient } from "../services/google-tasks/client";
 import type { GoogleTasksError } from "../services/google-tasks/errors";
 
 function showContextualToastEffect(
@@ -60,33 +61,45 @@ function showContextualToastEffect(
 }
 
 /**
- * Run an Effect and return its result as a Promise.
+ * Run an Effect that requires a `GoogleTasksClient` and return its result as a Promise.
+ * The OAuth `token` is injected into the Effect context automatically.
  * Useful inside `useCachedPromise` and other React hooks that expect Promises.
  */
-export async function runEffectPromise<T, E>(effect: Effect.Effect<T, E>): Promise<T> {
-  return Effect.runPromise(effect);
+export async function runEffectPromise<T, E>(
+  token: string,
+  effect: Effect.Effect<T, E, GoogleTasksClient>,
+): Promise<T> {
+  return Effect.runPromise(
+    Effect.provideService(effect, GoogleTasksClient, { accessToken: token }),
+  );
 }
 
 /**
- * Run an Effect, show a success toast on completion, and show a contextual
- * error toast for known Google Tasks failures (auth, rate-limit, network).
+ * Run an Effect that requires a `GoogleTasksClient`, show a success toast on completion,
+ * and show a contextual error toast for known Google Tasks failures (auth, rate-limit, network).
+ * The OAuth `token` is injected into the Effect context automatically.
  * Errors are propagated after the toast is shown; callers should wrap in
  * try/catch if they need to handle the failure case.
  */
 export async function runEffectWithToast<T>(
-  effect: Effect.Effect<T, GoogleTasksError>,
+  token: string,
+  effect: Effect.Effect<T, GoogleTasksError, GoogleTasksClient>,
   options: { successTitle?: string; errorTitle: string },
 ): Promise<T> {
   return Effect.runPromise(
-    effect.pipe(
-      Effect.tap(() => {
-        const title = options.successTitle;
-        if (!title) return Effect.void;
-        return Effect.promise(() =>
-          showToast({ style: Toast.Style.Success, title }),
-        );
-      }),
-      Effect.tapError((error) => showContextualToastEffect(error, options.errorTitle)),
+    Effect.provideService(
+      effect.pipe(
+        Effect.tap(() => {
+          const title = options.successTitle;
+          if (!title) return Effect.void;
+          return Effect.promise(() =>
+            showToast({ style: Toast.Style.Success, title }),
+          );
+        }),
+        Effect.tapError((error) => showContextualToastEffect(error, options.errorTitle)),
+      ),
+      GoogleTasksClient,
+      { accessToken: token },
     ),
   );
 }

@@ -21,7 +21,7 @@ import { buildTaskDetailMarkdown, formatTaskRowSubtitle, matchesTaskSearch } fro
 import { directChildCountsInSet, formatHierarchyListTitle, indexTasksById, orderTasksForList, resolvedParentDisplayTitle } from "../domain/hierarchy";
 import { getTasksParamsForFilter, taskFilterLabel, type TaskFilter } from "../domain/filters";
 import { runEffectPromise, runEffectWithToast } from "../utils/effect-bridge";
-import type { Task, TaskList } from "../types";
+import type { Task, TaskList } from "../services/google-tasks/schema";
 
 export type TasksViewProps = {
   taskList: TaskList;
@@ -49,7 +49,7 @@ export function TasksView({ taskList, allLists, onListsChanged }: TasksViewProps
       if (!listId) {
         return { items: [] };
       }
-      return runEffectPromise(api.getTasksEffect(accessToken, listId, params));
+      return runEffectPromise(accessToken, api.getTasksEffect(listId, params));
     },
     [token, taskListId, listParams],
     {
@@ -91,11 +91,11 @@ export function TasksView({ taskList, allLists, onListsChanged }: TasksViewProps
     if (!task.id) return;
     const effect =
       task.status === "completed"
-        ? api.patchTaskEffect(token, taskListId, task.id, { status: "needsAction" })
-        : api.completeTaskEffect(token, taskListId, task.id);
+        ? api.patchTaskEffect(taskListId, task.id, { status: "needsAction" })
+        : api.completeTaskEffect(taskListId, task.id);
 
     try {
-      await runEffectWithToast(effect, { successTitle: "Updated", errorTitle: "Could not update task" });
+      await runEffectWithToast(token, effect, { successTitle: "Updated", errorTitle: "Could not update task" });
       await revalidateTasks();
       onListsChanged?.();
     } catch {
@@ -115,7 +115,7 @@ export function TasksView({ taskList, allLists, onListsChanged }: TasksViewProps
     });
     if (!ok) return;
     try {
-      await runEffectWithToast(api.deleteTaskEffect(token, taskListId, task.id), {
+      await runEffectWithToast(token, api.deleteTaskEffect(taskListId, task.id), {
         successTitle: "Deleted",
         errorTitle: "Could not delete task",
       });
@@ -130,7 +130,8 @@ export function TasksView({ taskList, allLists, onListsChanged }: TasksViewProps
     if (!task.id || targetListId === taskListId) return;
     try {
       await runEffectWithToast(
-        moveTaskToAnotherListEffect(token, taskListId, targetListId, task),
+        token,
+        moveTaskToAnotherListEffect(taskListId, targetListId, task),
         { successTitle: "Moved", errorTitle: "Could not move task" },
       );
       await revalidateTasks();

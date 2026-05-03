@@ -19,7 +19,7 @@ import { getRememberedTaskListId } from "../utils/storage";
 import { indexTasksById, resolvedParentDisplayTitle } from "../domain/hierarchy";
 import { runEffectWithToast, runEffectPromise } from "../utils/effect-bridge";
 import { getTaskListsEffect, getTasksAllPagesEffect, patchTaskEffect, completeTaskEffect } from "../services/google-tasks/api";
-import type { Task, TaskList } from "../types";
+import type { Task, TaskList } from "../services/google-tasks/schema";
 
 async function resolveDefaultListId(lists: TaskList[]): Promise<string> {
   const remembered = await getRememberedTaskListId();
@@ -37,7 +37,7 @@ export function MenuBarView() {
     isLoading: listsLoading,
     revalidate: revalidateLists,
   } = useCachedPromise(
-    async (accessToken: string) => runEffectPromise(getTaskListsEffect(accessToken, { maxResults: 100 })),
+    async (accessToken: string) => runEffectPromise(accessToken, getTaskListsEffect({ maxResults: 100 })),
     [token],
     { failureToastOptions: { title: "Could not load lists" } },
   );
@@ -62,7 +62,8 @@ export function MenuBarView() {
     async (accessToken: string, lid: string) => {
       if (!lid) return { items: [] as Task[] };
       const items = await runEffectPromise(
-        getTasksAllPagesEffect(accessToken, lid, {
+        accessToken,
+        getTasksAllPagesEffect(lid, {
           maxResults: 100,
           showCompleted: true,
           showHidden: true,
@@ -99,10 +100,10 @@ export function MenuBarView() {
       if (!task.id || !listId) return;
       const done = task.status === "completed";
       const effect = done
-        ? patchTaskEffect(token, listId, task.id, { status: "needsAction" })
-        : completeTaskEffect(token, listId, task.id);
+        ? patchTaskEffect(listId, task.id, { status: "needsAction" })
+        : completeTaskEffect(listId, task.id);
       try {
-        await runEffectWithToast(effect, {
+        await runEffectWithToast(token, effect, {
           errorTitle: done ? "Could not reopen task" : "Could not complete task",
         });
         await revalidateTasks();
