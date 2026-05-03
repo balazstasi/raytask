@@ -108,8 +108,20 @@ export function googleTasksRequestEffect<T>(
           : res.statusText || `Request failed (${res.status})`;
 
       const bodyPayload = text ?
-        yield* Schema.decodeUnknown(GoogleTasksApiErrorBodySchema)(JSON.parse(text)).pipe(
-          Effect.orElseSucceed(() => undefined),
+        yield* Effect.sync(() => {
+          try {
+            return JSON.parse(text);
+          } catch {
+            return undefined;
+          }
+        }).pipe(
+          Effect.andThen((parsed) =>
+            parsed !== undefined ?
+              Schema.decodeUnknown(GoogleTasksApiErrorBodySchema)(parsed).pipe(
+                Effect.orElseSucceed(() => undefined),
+              ) :
+              Effect.succeed(undefined),
+          ),
         ) :
         undefined;
 

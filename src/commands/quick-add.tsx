@@ -6,7 +6,7 @@ import {
 } from "@raycast/api";
 import type { LaunchProps } from "@raycast/api";
 import { getAccessToken, useCachedPromise } from "@raycast/utils";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAuth } from "../hooks/useAuth";
 import * as api from "../services/google-tasks/api";
 import { parseDueInput } from "../utils/date";

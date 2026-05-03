@@ -1,11 +1,9 @@
 import {
   Icon,
   MenuBarExtra,
-  Toast,
   launchCommand,
   LaunchType,
   openExtensionPreferences,
-  showToast,
 } from "@raycast/api";
 import { getAccessToken, useCachedPromise } from "@raycast/utils";
 import { useCallback, useMemo } from "react";
