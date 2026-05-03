@@ -53,12 +53,14 @@ function QuickAddInner(props: LaunchProps<{ arguments: Arguments.QuickAdd }>) {
           return;
         }
 
-        const result = await runEffectWithToast(
-          api.createTaskEffect(token, listId, { title: titleArg, due: dueParsed }),
-          { successTitle: "Task added", errorTitle: "Could not create task" },
-        );
-        if (result !== undefined) {
+        try {
+          await runEffectWithToast(
+            api.createTaskEffect(token, listId, { title: titleArg, due: dueParsed }),
+            { successTitle: "Task added", errorTitle: "Could not create task" },
+          );
           await rememberTaskListId(listId);
+        } catch {
+          /* error already toasted */
         }
       } finally {
         setBusy(false);

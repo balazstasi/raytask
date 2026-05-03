@@ -100,10 +100,12 @@ export function EditTaskForm({ taskListId, task, lists, relationshipContext, onS
       effect = api.patchTaskEffect(token, taskListId, task.id, patch);
     }
 
-    const result = await runEffectWithToast(effect, { successTitle: "Task updated", errorTitle: "Could not save task" });
-    if (result !== undefined) {
+    try {
+      await runEffectWithToast(effect, { successTitle: "Task updated", errorTitle: "Could not save task" });
       onSaved?.();
       pop();
+    } catch {
+      /* error already toasted */
     }
   }
 

@@ -89,19 +89,21 @@ export function CreateTaskForm({ lists, initialListId, lockedParent, onSaved }: 
       lockedParent?.id ??
       (values.parentId && values.parentId !== "__none__" ? values.parentId : undefined);
 
-    const result = await runEffectWithToast(
-      api.createTaskEffect(token, lid, {
-        title,
-        notes: values.notes.trim() || undefined,
-        due: dueIso,
-        parent,
-      }),
-      { successTitle: lockedParent ? "Subtask created" : "Task created", errorTitle: "Could not create task" },
-    );
-    if (result !== undefined) {
+    try {
+      await runEffectWithToast(
+        api.createTaskEffect(token, lid, {
+          title,
+          notes: values.notes.trim() || undefined,
+          due: dueIso,
+          parent,
+        }),
+        { successTitle: lockedParent ? "Subtask created" : "Task created", errorTitle: "Could not create task" },
+      );
       await rememberTaskListId(lid);
       onSaved?.();
       pop();
+    } catch {
+      /* error already toasted */
     }
   }
 

@@ -101,11 +101,13 @@ export function MenuBarView() {
       const effect = done
         ? patchTaskEffect(token, listId, task.id, { status: "needsAction" })
         : completeTaskEffect(token, listId, task.id);
-      const result = await runEffectWithToast(effect, {
-        errorTitle: done ? "Could not reopen task" : "Could not complete task",
-      });
-      if (result !== undefined) {
+      try {
+        await runEffectWithToast(effect, {
+          errorTitle: done ? "Could not reopen task" : "Could not complete task",
+        });
         await revalidateTasks();
+      } catch {
+        /* error already toasted */
       }
     },
     [token, listId, revalidateTasks],

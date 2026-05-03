@@ -94,10 +94,12 @@ export function TasksView({ taskList, allLists, onListsChanged }: TasksViewProps
         ? api.patchTaskEffect(token, taskListId, task.id, { status: "needsAction" })
         : api.completeTaskEffect(token, taskListId, task.id);
 
-    const result = await runEffectWithToast(effect, { successTitle: "Updated", errorTitle: "Could not update task" });
-    if (result !== undefined) {
+    try {
+      await runEffectWithToast(effect, { successTitle: "Updated", errorTitle: "Could not update task" });
       await revalidateTasks();
       onListsChanged?.();
+    } catch {
+      /* error already toasted */
     }
   }
 
@@ -112,25 +114,29 @@ export function TasksView({ taskList, allLists, onListsChanged }: TasksViewProps
       primaryAction: { title: "Delete", style: Alert.ActionStyle.Destructive },
     });
     if (!ok) return;
-    const result = await runEffectWithToast(api.deleteTaskEffect(token, taskListId, task.id), {
-      successTitle: "Deleted",
-      errorTitle: "Could not delete task",
-    });
-    if (result !== undefined) {
+    try {
+      await runEffectWithToast(api.deleteTaskEffect(token, taskListId, task.id), {
+        successTitle: "Deleted",
+        errorTitle: "Could not delete task",
+      });
       await revalidateTasks();
       onListsChanged?.();
+    } catch {
+      /* error already toasted */
     }
   }
 
   async function moveTo(task: Task, targetListId: string) {
     if (!task.id || targetListId === taskListId) return;
-    const result = await runEffectWithToast(
-      moveTaskToAnotherListEffect(token, taskListId, targetListId, task),
-      { successTitle: "Moved", errorTitle: "Could not move task" },
-    );
-    if (result !== undefined) {
+    try {
+      await runEffectWithToast(
+        moveTaskToAnotherListEffect(token, taskListId, targetListId, task),
+        { successTitle: "Moved", errorTitle: "Could not move task" },
+      );
       await revalidateTasks();
       onListsChanged?.();
+    } catch {
+      /* error already toasted */
     }
   }
 
