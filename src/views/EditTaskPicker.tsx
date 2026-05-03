@@ -12,7 +12,8 @@ import { EditTaskForm } from "../components/EditTaskForm";
 import { getRememberedTaskListId, rememberTaskListId } from "../utils/storage";
 import { formatTaskRowSubtitle, matchesTaskSearch } from "../domain/format";
 import { directChildCountsInSet, formatHierarchyListTitle, indexTasksById, orderTasksForList, resolvedParentDisplayTitle } from "../domain/hierarchy";
-import * as api from "../services/google-tasks/api";
+import { getTaskListsEffect, getTasksEffect } from "../services/google-tasks/api";
+import { runEffectPromise } from "../utils/effect-bridge";
 import type { Task, TaskList } from "../types";
 
 export function EditTaskPicker() {
@@ -26,7 +27,7 @@ export function EditTaskPicker() {
     isLoading: listsLoading,
     revalidate: revalidateLists,
   } = useCachedPromise(
-    async (accessToken: string) => api.getTaskLists(accessToken, { maxResults: 100 }),
+    async (accessToken: string) => runEffectPromise(getTaskListsEffect(accessToken, { maxResults: 100 })),
     [token],
     { failureToastOptions: { title: "Could not load lists" } },
   );
@@ -50,7 +51,7 @@ export function EditTaskPicker() {
   } = useCachedPromise(
     async (accessToken: string, lid: string) => {
       if (!lid) return { items: [] };
-      return api.getTasks(accessToken, lid, { maxResults: 100, showCompleted: true });
+      return runEffectPromise(getTasksEffect(accessToken, lid, { maxResults: 100, showCompleted: true }));
     },
     [token, listId],
     { execute: listId.length > 0, failureToastOptions: { title: "Could not load tasks" } },

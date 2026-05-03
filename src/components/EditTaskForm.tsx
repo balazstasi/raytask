@@ -2,7 +2,7 @@ import { Action, ActionPanel, Form, Icon, Toast, showToast, useNavigation } from
 import { getAccessToken } from "@raycast/utils";
 import { useMemo } from "react";
 import * as api from "../services/google-tasks/api";
-import { moveTaskToAnotherList, moveTaskToAnotherListEffect } from "../domain/move";
+import { moveTaskToAnotherListEffect } from "../domain/move";
 import { indexTasksById } from "../domain/hierarchy";
 import { dateToDueRFC3339, parseDueInput } from "../utils/date";
 import { runEffectWithToast } from "../utils/effect-bridge";

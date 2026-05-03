@@ -83,17 +83,17 @@ export function googleTasksRequestEffect<T>(
         res.status === 401
           ? "Google rejected the token. Try signing out of RayTask and connecting again."
           : res.statusText || `Request failed (${res.status})`;
-      let bodyPayload: GoogleTasksApiErrorBody | undefined;
 
-      try {
-        if (text) {
-          bodyPayload = JSON.parse(text) as GoogleTasksApiErrorBody;
-          if (bodyPayload.error?.message) {
-            message = bodyPayload.error.message;
-          }
+      const bodyPayload = yield* Effect.sync(() => {
+        try {
+          return text ? (JSON.parse(text) as GoogleTasksApiErrorBody) : undefined;
+        } catch {
+          return undefined;
         }
-      } catch {
-        /* use default message */
+      });
+
+      if (bodyPayload?.error?.message) {
+        message = bodyPayload.error.message;
       }
 
       yield* Effect.fail(
@@ -109,14 +109,3 @@ export function googleTasksRequestEffect<T>(
   });
 }
 
-/** ------------------------------------------------------------------ */
-/** Backward-compatible Promise wrapper (to be removed in later step)   */
-/** ------------------------------------------------------------------ */
-
-export async function googleTasksRequest<T>(
-  accessToken: string,
-  path: string,
-  init: RequestInit = {},
-): Promise<T> {
-  return Effect.runPromise(googleTasksRequestEffect<T>(accessToken, path, init));
-}

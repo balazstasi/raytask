@@ -39,11 +39,3 @@ export function moveTaskToAnotherListEffect(
   });
 }
 
-export async function moveTaskToAnotherList(
-  accessToken: string,
-  sourceListId: string,
-  targetListId: string,
-  task: Task,
-): Promise<void> {
-  return Effect.runPromise(moveTaskToAnotherListEffect(accessToken, sourceListId, targetListId, task));
-}

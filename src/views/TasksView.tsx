@@ -16,7 +16,7 @@ import * as api from "../services/google-tasks/api";
 import { CreateTaskForm } from "../components/CreateTaskForm";
 import { EditTaskForm } from "../components/EditTaskForm";
 import { looksLikeDailyRepeatTask } from "../domain/menu-bar-filter";
-import { moveTaskToAnotherList, moveTaskToAnotherListEffect } from "../domain/move";
+import { moveTaskToAnotherListEffect } from "../domain/move";
 import { buildTaskDetailMarkdown, formatTaskRowSubtitle, matchesTaskSearch } from "../domain/format";
 import { directChildCountsInSet, formatHierarchyListTitle, indexTasksById, orderTasksForList, resolvedParentDisplayTitle } from "../domain/hierarchy";
 import { getTasksParamsForFilter, taskFilterLabel, type TaskFilter } from "../domain/filters";

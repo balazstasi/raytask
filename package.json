@@ -83,6 +83,7 @@
     "effect": "^3.21.2"
   },
   "devDependencies": {
+    "@effect/language-service": "^0.85.1",
     "@types/node": "^22.13.10",
     "@types/react": "^19.0.10",
     "typescript": "^5.8.2"

@@ -115,7 +115,7 @@ export function MenuBarView() {
     listsLoading || defaultListQuery.isLoading || (listId.length > 0 && tasksLoading);
 
   return (
-    <MenuBarExtra icon="icon.png" isLoading={loading} tooltip="RayTask · Today & overdue">
+    <MenuBarExtra icon={Icon.CircleFilled} isLoading={loading} tooltip="RayTask · Today & overdue">
       <MenuBarExtra.Item
         title="Open Google Tasks"
         onAction={() => launchCommand({ name: "index", type: LaunchType.UserInitiated })}
