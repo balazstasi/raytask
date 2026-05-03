@@ -11,7 +11,7 @@ import { useAuth } from "../hooks/useAuth";
 import * as api from "../services/google-tasks/api";
 import { parseDueInput } from "../utils/date";
 import { getRememberedTaskListId, rememberTaskListId } from "../utils/storage";
-import { showErrorToast } from "../utils/errors";
+import { runEffectPromise, runEffectWithToast } from "../utils/effect-bridge";
 
 function QuickAddInner(props: LaunchProps<{ arguments: Arguments.QuickAdd }>) {
   const { token } = getAccessToken();
@@ -22,7 +22,7 @@ function QuickAddInner(props: LaunchProps<{ arguments: Arguments.QuickAdd }>) {
   const [busy, setBusy] = useState(true);
 
   const { data: listsData, isLoading: listsLoading } = useCachedPromise(
-    async (accessToken: string) => api.getTaskLists(accessToken, { maxResults: 100 }),
+    async (accessToken: string) => runEffectPromise(api.getTaskListsEffect(accessToken, { maxResults: 100 })),
     [token],
     { failureToastOptions: { title: "Could not load lists" } },
   );
@@ -53,15 +53,13 @@ function QuickAddInner(props: LaunchProps<{ arguments: Arguments.QuickAdd }>) {
           return;
         }
 
-        await api.createTask(token, listId, {
-          title: titleArg,
-          due: dueParsed,
-        });
-        await rememberTaskListId(listId);
-        await showToast({ style: Toast.Style.Success, title: "Task added" });
-      } catch (e) {
-        await showErrorToast(e, "Could not create task");
-        await new Promise((r) => setTimeout(r, 2000));
+        const result = await runEffectWithToast(
+          api.createTaskEffect(token, listId, { title: titleArg, due: dueParsed }),
+          { successTitle: "Task added", errorTitle: "Could not create task" },
+        );
+        if (result !== undefined) {
+          await rememberTaskListId(listId);
+        }
       } finally {
         setBusy(false);
         await popToRoot();

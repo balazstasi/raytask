@@ -17,8 +17,8 @@ import {
 } from "../domain/menu-bar-filter";
 import { getRememberedTaskListId } from "../utils/storage";
 import { indexTasksById, resolvedParentDisplayTitle } from "../domain/hierarchy";
-import { showErrorToast } from "../utils/errors";
-import * as api from "../services/google-tasks/api";
+import { runEffectWithToast, runEffectPromise } from "../utils/effect-bridge";
+import { getTaskListsEffect, getTasksAllPagesEffect, patchTaskEffect, completeTaskEffect } from "../services/google-tasks/api";
 import type { Task, TaskList } from "../types";
 
 async function resolveDefaultListId(lists: TaskList[]): Promise<string> {
@@ -37,7 +37,7 @@ export function MenuBarView() {
     isLoading: listsLoading,
     revalidate: revalidateLists,
   } = useCachedPromise(
-    async (accessToken: string) => api.getTaskLists(accessToken, { maxResults: 100 }),
+    async (accessToken: string) => runEffectPromise(getTaskListsEffect(accessToken, { maxResults: 100 })),
     [token],
     { failureToastOptions: { title: "Could not load lists" } },
   );
@@ -61,11 +61,13 @@ export function MenuBarView() {
   } = useCachedPromise(
     async (accessToken: string, lid: string) => {
       if (!lid) return { items: [] as Task[] };
-      const items = await api.getTasksAllPages(accessToken, lid, {
-        maxResults: 100,
-        showCompleted: true,
-        showHidden: true,
-      });
+      const items = await runEffectPromise(
+        getTasksAllPagesEffect(accessToken, lid, {
+          maxResults: 100,
+          showCompleted: true,
+          showHidden: true,
+        }),
+      );
       return { items };
     },
     [token, listId],
@@ -96,15 +98,14 @@ export function MenuBarView() {
     async (task: Task) => {
       if (!task.id || !listId) return;
       const done = task.status === "completed";
-      try {
-        if (done) {
-          await api.patchTask(token, listId, task.id, { status: "needsAction" });
-        } else {
-          await api.completeTask(token, listId, task.id);
-        }
+      const effect = done
+        ? patchTaskEffect(token, listId, task.id, { status: "needsAction" })
+        : completeTaskEffect(token, listId, task.id);
+      const result = await runEffectWithToast(effect, {
+        errorTitle: done ? "Could not reopen task" : "Could not complete task",
+      });
+      if (result !== undefined) {
         await revalidateTasks();
-      } catch (e) {
-        await showErrorToast(e, done ? "Could not reopen task" : "Could not complete task");
       }
     },
     [token, listId, revalidateTasks],

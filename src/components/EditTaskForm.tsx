@@ -2,10 +2,10 @@ import { Action, ActionPanel, Form, Icon, Toast, showToast, useNavigation } from
 import { getAccessToken } from "@raycast/utils";
 import { useMemo } from "react";
 import * as api from "../services/google-tasks/api";
-import { moveTaskToAnotherList } from "../domain/move";
+import { moveTaskToAnotherList, moveTaskToAnotherListEffect } from "../domain/move";
 import { indexTasksById } from "../domain/hierarchy";
 import { dateToDueRFC3339, parseDueInput } from "../utils/date";
-import { showErrorToast } from "../utils/errors";
+import { runEffectWithToast } from "../utils/effect-bridge";
 import type { Task, TaskList } from "../types";
 
 export type EditTaskFormProps = {
@@ -71,39 +71,39 @@ export function EditTaskForm({ taskListId, task, lists, relationshipContext, onS
       resolvedDueDate = dueIsoToLocalDate(parsedIso);
     }
 
-    try {
-      const dueDayChanged = calendarDayKey(resolvedDueDate) !== calendarDayKey(initialDue);
-      const newDueIso = resolvedDueDate ? dateToDueRFC3339(resolvedDueDate) : undefined;
+    const dueDayChanged = calendarDayKey(resolvedDueDate) !== calendarDayKey(initialDue);
+    const newDueIso = resolvedDueDate ? dateToDueRFC3339(resolvedDueDate) : undefined;
 
-      if (values.listId !== taskListId && task.id) {
-        const updated: Task = {
-          ...task,
-          title,
-          notes: values.notes.trim() || undefined,
-          due: dueDayChanged ? newDueIso : task.due,
-          status: values.status === "completed" ? "completed" : "needsAction",
-        };
-        await moveTaskToAnotherList(token, taskListId, values.listId, updated);
-      } else {
-        if (!task.id) {
-          throw new Error("Task has no id");
-        }
-        const patch: Record<string, unknown> = {
-          title,
-          notes: values.notes.trim() || undefined,
-          status: values.status === "completed" ? "completed" : "needsAction",
-        };
-        if (dueDayChanged) {
-          patch.due = newDueIso ?? null;
-        }
-        await api.patchTask(token, taskListId, task.id, patch as Partial<Task>);
+    let effect;
+    if (values.listId !== taskListId && task.id) {
+      const updated: Task = {
+        ...task,
+        title,
+        notes: values.notes.trim() || undefined,
+        due: dueDayChanged ? newDueIso : task.due,
+        status: values.status === "completed" ? "completed" : "needsAction",
+      };
+      effect = moveTaskToAnotherListEffect(token, taskListId, values.listId, updated);
+    } else {
+      if (!task.id) {
+        await showToast({ style: Toast.Style.Failure, title: "Task has no id" });
+        return;
       }
+      const patch: Partial<Task> = {
+        title,
+        notes: values.notes.trim() || undefined,
+        status: values.status === "completed" ? "completed" : "needsAction",
+      };
+      if (dueDayChanged) {
+        patch.due = newDueIso ?? undefined;
+      }
+      effect = api.patchTaskEffect(token, taskListId, task.id, patch);
+    }
 
-      await showToast({ style: Toast.Style.Success, title: "Task updated" });
+    const result = await runEffectWithToast(effect, { successTitle: "Task updated", errorTitle: "Could not save task" });
+    if (result !== undefined) {
       onSaved?.();
       pop();
-    } catch (e) {
-      await showErrorToast(e, "Could not save task");
     }
   }
 

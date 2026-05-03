@@ -12,7 +12,7 @@ import { useMemo, useState } from "react";
 import * as api from "../services/google-tasks/api";
 import { dateToDueRFC3339, parseDueInput } from "../utils/date";
 import { rememberTaskListId } from "../utils/storage";
-import { showErrorToast } from "../utils/errors";
+import { runEffectPromise, runEffectWithToast } from "../utils/effect-bridge";
 import type { Task, TaskList } from "../types";
 
 export type CreateTaskFormProps = {
@@ -41,7 +41,7 @@ export function CreateTaskForm({ lists, initialListId, lockedParent, onSaved }: 
   const { data: tasksData, isLoading: tasksLoading } = useCachedPromise(
     async (accessToken: string, lid: string) => {
       if (!lid || lockedParent) return { items: [] as Task[] };
-      return api.getTasks(accessToken, lid, { maxResults: 100, showCompleted: false });
+      return runEffectPromise(api.getTasksEffect(accessToken, lid, { maxResults: 100, showCompleted: false }));
     },
     [token, listId],
     { execute: listId.length > 0 && !lockedParent },
@@ -89,22 +89,19 @@ export function CreateTaskForm({ lists, initialListId, lockedParent, onSaved }: 
       lockedParent?.id ??
       (values.parentId && values.parentId !== "__none__" ? values.parentId : undefined);
 
-    try {
-      await api.createTask(token, lid, {
+    const result = await runEffectWithToast(
+      api.createTaskEffect(token, lid, {
         title,
         notes: values.notes.trim() || undefined,
         due: dueIso,
         parent,
-      });
+      }),
+      { successTitle: lockedParent ? "Subtask created" : "Task created", errorTitle: "Could not create task" },
+    );
+    if (result !== undefined) {
       await rememberTaskListId(lid);
-      await showToast({
-        style: Toast.Style.Success,
-        title: lockedParent ? "Subtask created" : "Task created",
-      });
       onSaved?.();
       pop();
-    } catch (e) {
-      await showErrorToast(e, "Could not create task");
     }
   }
 

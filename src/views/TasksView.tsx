@@ -16,11 +16,11 @@ import * as api from "../services/google-tasks/api";
 import { CreateTaskForm } from "../components/CreateTaskForm";
 import { EditTaskForm } from "../components/EditTaskForm";
 import { looksLikeDailyRepeatTask } from "../domain/menu-bar-filter";
-import { moveTaskToAnotherList } from "../domain/move";
+import { moveTaskToAnotherList, moveTaskToAnotherListEffect } from "../domain/move";
 import { buildTaskDetailMarkdown, formatTaskRowSubtitle, matchesTaskSearch } from "../domain/format";
 import { directChildCountsInSet, formatHierarchyListTitle, indexTasksById, orderTasksForList, resolvedParentDisplayTitle } from "../domain/hierarchy";
 import { getTasksParamsForFilter, taskFilterLabel, type TaskFilter } from "../domain/filters";
-import { showErrorToast } from "../utils/errors";
+import { runEffectPromise, runEffectWithToast } from "../utils/effect-bridge";
 import type { Task, TaskList } from "../types";
 
 export type TasksViewProps = {
@@ -49,7 +49,7 @@ export function TasksView({ taskList, allLists, onListsChanged }: TasksViewProps
       if (!listId) {
         return { items: [] };
       }
-      return api.getTasks(accessToken, listId, params);
+      return runEffectPromise(api.getTasksEffect(accessToken, listId, params));
     },
     [token, taskListId, listParams],
     {
@@ -89,17 +89,15 @@ export function TasksView({ taskList, allLists, onListsChanged }: TasksViewProps
 
   async function toggleComplete(task: Task) {
     if (!task.id) return;
-    try {
-      if (task.status === "completed") {
-        await api.patchTask(token, taskListId, task.id, { status: "needsAction" });
-      } else {
-        await api.completeTask(token, taskListId, task.id);
-      }
-      await showToast({ style: Toast.Style.Success, title: "Updated" });
+    const effect =
+      task.status === "completed"
+        ? api.patchTaskEffect(token, taskListId, task.id, { status: "needsAction" })
+        : api.completeTaskEffect(token, taskListId, task.id);
+
+    const result = await runEffectWithToast(effect, { successTitle: "Updated", errorTitle: "Could not update task" });
+    if (result !== undefined) {
       await revalidateTasks();
       onListsChanged?.();
-    } catch (e) {
-      await showErrorToast(e, "Could not update task");
     }
   }
 
@@ -114,25 +112,25 @@ export function TasksView({ taskList, allLists, onListsChanged }: TasksViewProps
       primaryAction: { title: "Delete", style: Alert.ActionStyle.Destructive },
     });
     if (!ok) return;
-    try {
-      await api.deleteTask(token, taskListId, task.id);
-      await showToast({ style: Toast.Style.Success, title: "Deleted" });
+    const result = await runEffectWithToast(api.deleteTaskEffect(token, taskListId, task.id), {
+      successTitle: "Deleted",
+      errorTitle: "Could not delete task",
+    });
+    if (result !== undefined) {
       await revalidateTasks();
       onListsChanged?.();
-    } catch (e) {
-      await showErrorToast(e, "Could not delete task");
     }
   }
 
   async function moveTo(task: Task, targetListId: string) {
     if (!task.id || targetListId === taskListId) return;
-    try {
-      await moveTaskToAnotherList(token, taskListId, targetListId, task);
-      await showToast({ style: Toast.Style.Success, title: "Moved" });
+    const result = await runEffectWithToast(
+      moveTaskToAnotherListEffect(token, taskListId, targetListId, task),
+      { successTitle: "Moved", errorTitle: "Could not move task" },
+    );
+    if (result !== undefined) {
       await revalidateTasks();
       onListsChanged?.();
-    } catch (e) {
-      await showErrorToast(e, "Could not move task");
     }
   }
 

@@ -1,7 +1,8 @@
 import { Action, ActionPanel, Icon, Keyboard, List, useNavigation } from "@raycast/api";
 import { getAccessToken, useCachedPromise } from "@raycast/utils";
 import { useMemo } from "react";
-import * as api from "../services/google-tasks/api";
+import { getTaskListsEffect } from "../services/google-tasks/api";
+import { runEffectPromise } from "../utils/effect-bridge";
 import { rememberTaskListId } from "../utils/storage";
 import { TasksView } from "./TasksView";
 
@@ -14,7 +15,7 @@ export function TaskListsView() {
     data: listsData,
     revalidate: revalidateLists,
   } = useCachedPromise(
-    async (accessToken: string) => api.getTaskLists(accessToken, { maxResults: 100 }),
+    async (accessToken: string) => runEffectPromise(getTaskListsEffect(accessToken, { maxResults: 100 })),
     [token],
     {
       failureToastOptions: {
