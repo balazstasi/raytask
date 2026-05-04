@@ -76,6 +76,14 @@ export function EditTaskForm({ taskListId, task, lists, relationshipContext, onS
 
     let effect;
     if (values.listId !== taskListId && task.id) {
+      if (!relationshipContext?.length) {
+        await showToast({
+          style: Toast.Style.Failure,
+          title: "Could not move task",
+          message: "Reload the source list first so RayTask can preserve subtasks and avoid data loss.",
+        });
+        return;
+      }
       const updated: Task = {
         ...task,
         title,
@@ -83,7 +91,7 @@ export function EditTaskForm({ taskListId, task, lists, relationshipContext, onS
         due: dueDayChanged ? newDueIso : task.due,
         status: values.status === "completed" ? "completed" : "needsAction",
       };
-      effect = moveTaskToAnotherListEffect(taskListId, values.listId, updated);
+      effect = moveTaskToAnotherListEffect(taskListId, values.listId, updated, relationshipContext);
     } else {
       if (!task.id) {
         await showToast({ style: Toast.Style.Failure, title: "Task has no id" });
@@ -109,7 +117,7 @@ export function EditTaskForm({ taskListId, task, lists, relationshipContext, onS
     }
   }
 
-  const listItems = lists.filter((l) => l.id);
+  const listItems = lists;
 
   return (
     <Form
@@ -139,7 +147,7 @@ export function EditTaskForm({ taskListId, task, lists, relationshipContext, onS
       </Form.Dropdown>
       <Form.Dropdown id="listId" title="List" defaultValue={taskListId}>
         {listItems.map((l) => (
-          <Form.Dropdown.Item key={l.id} value={l.id!} title={l.title ?? "Untitled"} />
+          <Form.Dropdown.Item key={l.id} value={l.id} title={l.title} />
         ))}
       </Form.Dropdown>
     </Form>

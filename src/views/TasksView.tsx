@@ -19,7 +19,7 @@ import { looksLikeDailyRepeatTask } from "../domain/menu-bar-filter";
 import { moveTaskToAnotherListEffect } from "../domain/move";
 import { buildTaskDetailMarkdown, formatTaskRowSubtitle, matchesTaskSearch } from "../domain/format";
 import { directChildCountsInSet, formatHierarchyListTitle, indexTasksById, orderTasksForList, resolvedParentDisplayTitle } from "../domain/hierarchy";
-import { getTasksParamsForFilter, taskFilterLabel, type TaskFilter } from "../domain/filters";
+import { FILTERS, getTasksParamsForFilter, isTaskFilter, taskFilterLabel, type TaskFilter } from "../domain/filters";
 import { runEffectPromise, runEffectWithToast } from "../utils/effect-bridge";
 import type { Task, TaskList } from "../services/google-tasks/schema";
 
@@ -131,7 +131,7 @@ export function TasksView({ taskList, allLists, onListsChanged }: TasksViewProps
     try {
       await runEffectWithToast(
         token,
-        moveTaskToAnotherListEffect(taskListId, targetListId, task),
+        moveTaskToAnotherListEffect(taskListId, targetListId, task, tasksRaw),
         { successTitle: "Moved", errorTitle: "Could not move task" },
       );
       await revalidateTasks();
@@ -145,13 +145,16 @@ export function TasksView({ taskList, allLists, onListsChanged }: TasksViewProps
     <List.Dropdown
       tooltip="Filter"
       value={filter}
-      onChange={(v) => setFilter(v as TaskFilter)}
+      onChange={(v) => {
+        if (isTaskFilter(v)) {
+          setFilter(v);
+        }
+      }}
       storeValue
     >
-      <List.Dropdown.Item value="all" title={taskFilterLabel("all")} />
-      <List.Dropdown.Item value="today" title={taskFilterLabel("today")} />
-      <List.Dropdown.Item value="upcoming" title={taskFilterLabel("upcoming")} />
-      <List.Dropdown.Item value="completed" title={taskFilterLabel("completed")} />
+      {FILTERS.map((value) => (
+        <List.Dropdown.Item key={value} value={value} title={taskFilterLabel(value)} />
+      ))}
     </List.Dropdown>
   );
 
@@ -269,7 +272,7 @@ export function TasksView({ taskList, allLists, onListsChanged }: TasksViewProps
                           lists={allLists}
                           initialListId={taskListId}
                           lockedParent={{
-                            id: task.id!,
+                            id: task.id,
                             title: task.title ?? "(No title)",
                           }}
                           onSaved={() => {
@@ -287,7 +290,7 @@ export function TasksView({ taskList, allLists, onListsChanged }: TasksViewProps
                       key={l.id}
                       title={`Move to ${l.title ?? "List"}`}
                       icon={Icon.ArrowRight}
-                      onAction={() => void moveTo(task, l.id!)}
+                      onAction={() => void moveTo(task, l.id)}
                     />
                   ))}
                 </ActionPanel.Section>

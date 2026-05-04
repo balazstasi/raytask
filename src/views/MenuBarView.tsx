@@ -13,10 +13,11 @@ import {
   taskMatchesMenuBarTodayAgenda,
   todayLocalCalendarDate,
 } from "../domain/menu-bar-filter";
+import { useTaskLists } from "../hooks/useTaskLists";
 import { getRememberedTaskListId } from "../utils/storage";
 import { indexTasksById, resolvedParentDisplayTitle } from "../domain/hierarchy";
 import { runEffectWithToast, runEffectPromise } from "../utils/effect-bridge";
-import { getTaskListsEffect, getTasksAllPagesEffect, patchTaskEffect, completeTaskEffect } from "../services/google-tasks/api";
+import { getTasksAllPagesEffect, patchTaskEffect, completeTaskEffect } from "../services/google-tasks/api";
 import type { Task, TaskList } from "../services/google-tasks/schema";
 
 async function resolveDefaultListId(lists: TaskList[]): Promise<string> {
@@ -29,18 +30,7 @@ async function resolveDefaultListId(lists: TaskList[]): Promise<string> {
 
 export function MenuBarView() {
   const { token } = getAccessToken();
-
-  const {
-    data: listsData,
-    isLoading: listsLoading,
-    revalidate: revalidateLists,
-  } = useCachedPromise(
-    async (accessToken: string) => runEffectPromise(accessToken, getTaskListsEffect({ maxResults: 100 })),
-    [token],
-    { failureToastOptions: { title: "Could not load lists" } },
-  );
-
-  const lists = useMemo(() => listsData?.items ?? [], [listsData]);
+  const { lists, isLoading: listsLoading, revalidate: revalidateLists } = useTaskLists();
 
   const defaultListQuery = useCachedPromise(
     async (_accessToken: string, loadedLists: TaskList[]) => resolveDefaultListId(loadedLists),

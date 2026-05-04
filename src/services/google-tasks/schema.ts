@@ -1,16 +1,14 @@
 import { Schema } from "effect";
 
-const TaskLinkSchema = Schema.Struct({
+const TaskLinkSchema = Schema.mutable(Schema.Struct({
   type: Schema.optional(Schema.String),
   description: Schema.optional(Schema.String),
   link: Schema.optional(Schema.String),
-});
+}));
 
-export const TaskSchema = Schema.mutable(Schema.Struct({
+const taskFields = {
   kind: Schema.optional(Schema.String),
-  id: Schema.optional(Schema.String),
   etag: Schema.optional(Schema.String),
-  title: Schema.optional(Schema.String),
   updated: Schema.optional(Schema.String),
   notes: Schema.optional(Schema.String),
   status: Schema.optional(Schema.Literal("needsAction", "completed")),
@@ -20,19 +18,25 @@ export const TaskSchema = Schema.mutable(Schema.Struct({
   hidden: Schema.optional(Schema.Boolean),
   parent: Schema.optional(Schema.String),
   position: Schema.optional(Schema.String),
-  links: Schema.optional(Schema.mutable(Schema.Record({ key: Schema.String, value: TaskLinkSchema }))),
+  links: Schema.optional(Schema.mutable(Schema.Array(TaskLinkSchema))),
   webViewLink: Schema.optional(Schema.String),
   assignmentInfo: Schema.optional(Schema.mutable(Schema.Record({ key: Schema.String, value: Schema.Unknown }))),
   selfLink: Schema.optional(Schema.String),
+};
+
+export const TaskSchema = Schema.mutable(Schema.Struct({
+  id: Schema.String,
+  title: Schema.String,
+  ...taskFields,
 }));
 
 export type Task = Schema.Schema.Type<typeof TaskSchema>;
 
 export const TaskListSchema = Schema.mutable(Schema.Struct({
   kind: Schema.optional(Schema.String),
-  id: Schema.optional(Schema.String),
+  id: Schema.String,
   etag: Schema.optional(Schema.String),
-  title: Schema.optional(Schema.String),
+  title: Schema.String,
   updated: Schema.optional(Schema.String),
   selfLink: Schema.optional(Schema.String),
 }));

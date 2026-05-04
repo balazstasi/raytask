@@ -79,14 +79,15 @@ export async function runEffectPromise<T, E>(
  * and show a contextual error toast for known Google Tasks failures (auth, rate-limit, network).
  * The OAuth `token` is injected into the Effect context automatically.
  * Errors are propagated after the toast is shown; callers should wrap in
- * try/catch if they need to handle the failure case.
+ * try/catch if they need to handle the failure case. An internal catch is attached so
+ * fire-and-forget callers do not trigger unhandled rejection warnings.
  */
 export async function runEffectWithToast<T>(
   token: string,
   effect: Effect.Effect<T, GoogleTasksError, GoogleTasksClient>,
   options: { successTitle?: string; errorTitle: string },
 ): Promise<T> {
-  return Effect.runPromise(
+  const promise = Effect.runPromise(
     Effect.provideService(
       effect.pipe(
         Effect.tap(() => {
@@ -102,4 +103,6 @@ export async function runEffectWithToast<T>(
       { accessToken: token },
     ),
   );
+  void promise.catch(() => undefined);
+  return promise;
 }

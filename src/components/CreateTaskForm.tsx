@@ -27,7 +27,7 @@ export function CreateTaskForm({ lists, initialListId, lockedParent, onSaved }: 
   const { token } = getAccessToken();
   const { pop } = useNavigation();
 
-  const listItems = useMemo(() => lists.filter((l) => l.id), [lists]);
+  const listItems = useMemo(() => lists, [lists]);
   const defaultListFromProps =
     initialListId && listItems.some((l) => l.id === initialListId) ?
       initialListId
@@ -147,14 +147,14 @@ export function CreateTaskForm({ lists, initialListId, lockedParent, onSaved }: 
         onChange={lockedParent ? undefined : setListId}
       >
         {listDropdownItems.map((l) => (
-          <Form.Dropdown.Item key={l.id} value={l.id!} title={l.title ?? "Untitled"} />
+          <Form.Dropdown.Item key={l.id} value={l.id} title={l.title} />
         ))}
       </Form.Dropdown>
       {!lockedParent ? (
         <Form.Dropdown id="parentId" title="Parent task" defaultValue="__none__">
           <Form.Dropdown.Item value="__none__" title="None" />
           {parentCandidates.map((t) => (
-            <Form.Dropdown.Item key={t.id} value={t.id!} title={t.title ?? "(No title)"} />
+            <Form.Dropdown.Item key={t.id} value={t.id} title={t.title} />
           ))}
         </Form.Dropdown>
       ) : null}

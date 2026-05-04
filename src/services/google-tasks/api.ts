@@ -3,12 +3,11 @@ import {
   TaskSchema,
   TaskListsResponseSchema,
   TasksResponseSchema,
-  VoidSchema,
   type Task,
   type TaskListsResponse,
   type TasksResponse,
 } from "./schema";
-import { googleTasksRequestEffect, type GoogleTasksError, type GoogleTasksClient } from "./client";
+import { googleTasksRequestEffect, googleTasksVoidRequestEffect, type GoogleTasksError, type GoogleTasksClient } from "./client";
 
 function appendCommonListParams(search: URLSearchParams, opts: Record<string, string | undefined>) {
   for (const [k, v] of Object.entries(opts)) {
@@ -31,7 +30,7 @@ export function getTaskListsEffect(
     pageToken: params?.pageToken,
   });
   const q = search.toString();
-  return googleTasksRequestEffect<TaskListsResponse>(
+  return googleTasksRequestEffect(
     `/users/@me/lists${q ? `?${q}` : ""}`,
     {},
     TaskListsResponseSchema,
@@ -82,7 +81,7 @@ export function getTasksEffect(
     search.set("showAssigned", String(showAssigned));
   }
   const q = search.toString();
-  return googleTasksRequestEffect<TasksResponse>(
+  return googleTasksRequestEffect(
     `/lists/${encodeURIComponent(taskListId)}/tasks${q ? `?${q}` : ""}`,
     {},
     TasksResponseSchema,
@@ -107,7 +106,7 @@ export function createTaskEffect(
 
   const q = search.toString();
 
-  return googleTasksRequestEffect<Task>(
+  return googleTasksRequestEffect(
     `/lists/${encodeURIComponent(taskListId)}/tasks${q ? `?${q}` : ""}`,
     {
       method: "POST",
@@ -122,7 +121,7 @@ export function patchTaskEffect(
   taskId: string,
   patch: Partial<Task>,
 ): Effect.Effect<Task, GoogleTasksError, GoogleTasksClient> {
-  return googleTasksRequestEffect<Task>(
+  return googleTasksRequestEffect(
     `/lists/${encodeURIComponent(taskListId)}/tasks/${encodeURIComponent(taskId)}`,
     {
       method: "PATCH",
@@ -137,7 +136,7 @@ export function replaceTaskEffect(
   taskId: string,
   task: Task,
 ): Effect.Effect<Task, GoogleTasksError, GoogleTasksClient> {
-  return googleTasksRequestEffect<Task>(
+  return googleTasksRequestEffect(
     `/lists/${encodeURIComponent(taskListId)}/tasks/${encodeURIComponent(taskId)}`,
     {
       method: "PUT",
@@ -151,10 +150,9 @@ export function deleteTaskEffect(
   taskListId: string,
   taskId: string,
 ): Effect.Effect<undefined, GoogleTasksError, GoogleTasksClient> {
-  return googleTasksRequestEffect<undefined>(
+  return googleTasksVoidRequestEffect(
     `/lists/${encodeURIComponent(taskListId)}/tasks/${encodeURIComponent(taskId)}`,
     { method: "DELETE" },
-    VoidSchema,
   );
 }
 
@@ -174,7 +172,7 @@ export function moveTaskEffect(
   if (options.parent) params.set("parent", options.parent);
   if (options.previous) params.set("previous", options.previous);
   const q = params.toString();
-  return googleTasksRequestEffect<Task>(
+  return googleTasksRequestEffect(
     `/lists/${encodeURIComponent(taskListId)}/tasks/${encodeURIComponent(taskId)}/move${q ? `?${q}` : ""}`,
     { method: "POST" },
     TaskSchema,
@@ -184,10 +182,9 @@ export function moveTaskEffect(
 export function clearCompletedTasksEffect(
   taskListId: string,
 ): Effect.Effect<undefined, GoogleTasksError, GoogleTasksClient> {
-  return googleTasksRequestEffect<undefined>(
+  return googleTasksVoidRequestEffect(
     `/lists/${encodeURIComponent(taskListId)}/clear`,
     { method: "POST" },
-    VoidSchema,
   );
 }
 
