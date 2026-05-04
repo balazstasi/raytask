@@ -17,7 +17,7 @@ import { useTaskLists } from "../hooks/useTaskLists";
 import { getRememberedTaskListId } from "../utils/storage";
 import { indexTasksById, resolvedParentDisplayTitle } from "../domain/hierarchy";
 import { runEffectWithToast, runEffectPromise } from "../utils/effect-bridge";
-import { getTasksAllPagesEffect, patchTaskEffect, completeTaskEffect } from "../services/google-tasks/api";
+import { getTasksAllPagesEffect, getTasksEffect, patchTaskEffect, completeTaskEffect } from "../services/google-tasks/api";
 import type { Task, TaskList } from "../services/google-tasks/schema";
 
 async function resolveDefaultListId(lists: TaskList[]): Promise<string> {
@@ -26,6 +26,15 @@ async function resolveDefaultListId(lists: TaskList[]): Promise<string> {
     return remembered;
   }
   return lists.find((l) => l.id)?.id ?? "";
+}
+
+function endOfTodayLocalIso(): string {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999).toISOString();
+}
+
+function dedupeTasks(tasks: Task[]): Task[] {
+  return [...new Map(tasks.map((task) => [task.id, task])).values()];
 }
 
 export function MenuBarView() {
@@ -49,15 +58,28 @@ export function MenuBarView() {
   } = useCachedPromise(
     async (accessToken: string, lid: string) => {
       if (!lid) return { items: [] as Task[] };
-      const items = await runEffectPromise(
-        accessToken,
-        getTasksAllPagesEffect(lid, {
-          maxResults: 100,
-          showCompleted: true,
-          showHidden: true,
-        }),
-      );
-      return { items };
+
+      const [dueTasks, dailyRepeatCandidates] = await Promise.all([
+        runEffectPromise(
+          accessToken,
+          getTasksAllPagesEffect(lid, {
+            maxResults: 100,
+            dueMax: endOfTodayLocalIso(),
+            showCompleted: true,
+            showHidden: true,
+          }),
+        ),
+        runEffectPromise(
+          accessToken,
+          getTasksEffect(lid, {
+            maxResults: 100,
+            showCompleted: false,
+            showHidden: false,
+          }),
+        ),
+      ]);
+
+      return { items: dedupeTasks([...dueTasks, ...(dailyRepeatCandidates.items ?? [])]) };
     },
     [token, listId],
     {
@@ -76,7 +98,7 @@ export function MenuBarView() {
 
   const agendaToday = todayLocalCalendarDate();
 
-  /** Broad fetch + client filter: due <= today (calendar), plus daily-repeat hints without due (API has no RRULE). */
+  /** Bounded fetch for due/overdue work, plus a small undated scan for daily-repeat hints (API exposes no recurrence). */
   const todayTasksOrdered = useMemo(() => {
     const filtered = tasks.filter((t) => taskMatchesMenuBarTodayAgenda(t, agendaToday));
     filtered.sort((a, b) => sortTasksForMenuBarToday(a, b, agendaToday));
