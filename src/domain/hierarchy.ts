@@ -1,4 +1,4 @@
-import type { Task } from "../types";
+import type { Task } from "../services/google-tasks/schema";
 
 export function indexTasksById(tasks: Task[]): Map<string, Task> {
   const map = new Map<string, Task>();

@@ -1,4 +1,4 @@
-import { MenuBarExtra, openExtensionPreferences } from "@raycast/api";
+import { Icon, MenuBarExtra, openExtensionPreferences } from "@raycast/api";
 import { useAuth } from "../hooks/useAuth";
 import { ErrorBoundary } from "../components/ErrorBoundary";
 import { MenuBarView } from "../views/MenuBarView";
@@ -13,7 +13,7 @@ function MenuBarWrapper() {
 
 function MenuBarFallback() {
   return (
-    <MenuBarExtra icon="icon.png" tooltip="RayTask">
+    <MenuBarExtra icon={Icon.CircleFilled} tooltip="RayTask">
       <MenuBarExtra.Item title="Set OAuth Client ID…" onAction={() => openExtensionPreferences()} />
     </MenuBarExtra>
   );

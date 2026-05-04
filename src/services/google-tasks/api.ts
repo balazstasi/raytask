@@ -1,5 +1,13 @@
-import type { Task, TaskListsResponse, TasksResponse } from "../../types";
-import { googleTasksRequest } from "./client";
+import { Effect } from "effect";
+import {
+  TaskSchema,
+  TaskListsResponseSchema,
+  TasksResponseSchema,
+  type Task,
+  type TaskListsResponse,
+  type TasksResponse,
+} from "./schema";
+import { googleTasksRequestEffect, googleTasksVoidRequestEffect, type GoogleTasksError, type GoogleTasksClient } from "./client";
 
 function appendCommonListParams(search: URLSearchParams, opts: Record<string, string | undefined>) {
   for (const [k, v] of Object.entries(opts)) {
@@ -9,19 +17,23 @@ function appendCommonListParams(search: URLSearchParams, opts: Record<string, st
   }
 }
 
-export async function getTaskLists(
-  accessToken: string,
+/** ------------------------------------------------------------------ */
+/** Effect-based API functions                                          */
+/** ------------------------------------------------------------------ */
+
+export function getTaskListsEffect(
   params?: { maxResults?: number; pageToken?: string },
-): Promise<TaskListsResponse> {
+): Effect.Effect<TaskListsResponse, GoogleTasksError, GoogleTasksClient> {
   const search = new URLSearchParams();
   appendCommonListParams(search, {
     maxResults: params?.maxResults !== undefined ? String(params.maxResults) : undefined,
     pageToken: params?.pageToken,
   });
   const q = search.toString();
-  return googleTasksRequest<TaskListsResponse>(
-    accessToken,
+  return googleTasksRequestEffect(
     `/users/@me/lists${q ? `?${q}` : ""}`,
+    {},
+    TaskListsResponseSchema,
   );
 }
 
@@ -40,11 +52,10 @@ export type ListTasksParams = {
   assignmentStatus?: string;
 };
 
-export async function getTasks(
-  accessToken: string,
+export function getTasksEffect(
   taskListId: string,
   params?: ListTasksParams,
-): Promise<TasksResponse> {
+): Effect.Effect<TasksResponse, GoogleTasksError, GoogleTasksClient> {
   const search = new URLSearchParams();
   const { showCompleted, showDeleted, showHidden, showAssigned, ...rest } = params ?? {};
   appendCommonListParams(search, {
@@ -70,9 +81,10 @@ export async function getTasks(
     search.set("showAssigned", String(showAssigned));
   }
   const q = search.toString();
-  return googleTasksRequest<TasksResponse>(
-    accessToken,
+  return googleTasksRequestEffect(
     `/lists/${encodeURIComponent(taskListId)}/tasks${q ? `?${q}` : ""}`,
+    {},
+    TasksResponseSchema,
   );
 }
 
@@ -81,11 +93,10 @@ export async function getTasks(
  * marks `parent` on the Task resource as output-only, so it is ignored if placed in the JSON body.
  * @see https://developers.google.com/tasks/reference/rest/v1/tasks/insert
  */
-export async function createTask(
-  accessToken: string,
+export function createTaskEffect(
   taskListId: string,
   task: Partial<Task> & { title: string },
-): Promise<Task> {
+): Effect.Effect<Task, GoogleTasksError, GoogleTasksClient> {
   const { parent, ...body } = task;
 
   const search = new URLSearchParams();
@@ -95,84 +106,83 @@ export async function createTask(
 
   const q = search.toString();
 
-  return googleTasksRequest<Task>(
-    accessToken,
+  return googleTasksRequestEffect(
     `/lists/${encodeURIComponent(taskListId)}/tasks${q ? `?${q}` : ""}`,
     {
       method: "POST",
       body: JSON.stringify(body),
     },
+    TaskSchema,
   );
 }
 
-export async function patchTask(
-  accessToken: string,
+export function patchTaskEffect(
   taskListId: string,
   taskId: string,
   patch: Partial<Task>,
-): Promise<Task> {
-  return googleTasksRequest<Task>(
-    accessToken,
+): Effect.Effect<Task, GoogleTasksError, GoogleTasksClient> {
+  return googleTasksRequestEffect(
     `/lists/${encodeURIComponent(taskListId)}/tasks/${encodeURIComponent(taskId)}`,
     {
       method: "PATCH",
       body: JSON.stringify(patch),
     },
+    TaskSchema,
   );
 }
 
-export async function replaceTask(
-  accessToken: string,
+export function replaceTaskEffect(
   taskListId: string,
   taskId: string,
   task: Task,
-): Promise<Task> {
-  return googleTasksRequest<Task>(
-    accessToken,
+): Effect.Effect<Task, GoogleTasksError, GoogleTasksClient> {
+  return googleTasksRequestEffect(
     `/lists/${encodeURIComponent(taskListId)}/tasks/${encodeURIComponent(taskId)}`,
     {
       method: "PUT",
       body: JSON.stringify(task),
     },
+    TaskSchema,
   );
 }
 
-export async function deleteTask(
-  accessToken: string,
+export function deleteTaskEffect(
   taskListId: string,
   taskId: string,
-): Promise<void> {
-  await googleTasksRequest<void>(
-    accessToken,
+): Effect.Effect<undefined, GoogleTasksError, GoogleTasksClient> {
+  return googleTasksVoidRequestEffect(
     `/lists/${encodeURIComponent(taskListId)}/tasks/${encodeURIComponent(taskId)}`,
     { method: "DELETE" },
   );
 }
 
-export async function completeTask(accessToken: string, taskListId: string, taskId: string): Promise<Task> {
-  return patchTask(accessToken, taskListId, taskId, { status: "completed" });
+export function completeTaskEffect(
+  taskListId: string,
+  taskId: string,
+): Effect.Effect<Task, GoogleTasksError, GoogleTasksClient> {
+  return patchTaskEffect(taskListId, taskId, { status: "completed" });
 }
 
-export async function moveTask(
-  accessToken: string,
+export function moveTaskEffect(
   taskListId: string,
   taskId: string,
   options: { parent?: string; previous?: string },
-): Promise<Task> {
+): Effect.Effect<Task, GoogleTasksError, GoogleTasksClient> {
   const params = new URLSearchParams();
   if (options.parent) params.set("parent", options.parent);
   if (options.previous) params.set("previous", options.previous);
   const q = params.toString();
-  return googleTasksRequest<Task>(
-    accessToken,
+  return googleTasksRequestEffect(
     `/lists/${encodeURIComponent(taskListId)}/tasks/${encodeURIComponent(taskId)}/move${q ? `?${q}` : ""}`,
     { method: "POST" },
+    TaskSchema,
   );
 }
 
-export async function clearCompletedTasks(accessToken: string, taskListId: string): Promise<void> {
-  await googleTasksRequest<void>(
-    accessToken,
+export function clearCompletedTasksEffect(
+  taskListId: string,
+): Effect.Effect<undefined, GoogleTasksError, GoogleTasksClient> {
+  return googleTasksVoidRequestEffect(
     `/lists/${encodeURIComponent(taskListId)}/clear`,
     { method: "POST" },
   );
@@ -183,21 +193,24 @@ const MENU_BAR_TASK_FETCH_PAGES = 15;
 /**
  * Pages through `tasks.list` until no `nextPageToken` or max pages (menu bar / broad filters).
  */
-export async function getTasksAllPages(
-  accessToken: string,
+export function getTasksAllPagesEffect(
   taskListId: string,
   baseParams: Omit<ListTasksParams, "pageToken">,
-): Promise<Task[]> {
-  const items: Task[] = [];
-  let pageToken: string | undefined;
-  for (let i = 0; i < MENU_BAR_TASK_FETCH_PAGES; i++) {
-    const res = await getTasks(accessToken, taskListId, {
-      ...baseParams,
-      pageToken,
-    });
-    items.push(...(res.items ?? []));
-    if (!res.nextPageToken) break;
-    pageToken = res.nextPageToken;
-  }
-  return items;
+): Effect.Effect<Task[], GoogleTasksError, GoogleTasksClient> {
+  return Effect.gen(function* () {
+    const items: Task[] = [];
+    let pageToken: string | undefined;
+    for (let i = 0; i < MENU_BAR_TASK_FETCH_PAGES; i++) {
+      const res = yield* getTasksEffect(taskListId, {
+        ...baseParams,
+        pageToken,
+      });
+      items.push(...(res.items ?? []));
+      if (!res.nextPageToken) break;
+      pageToken = res.nextPageToken;
+    }
+    return items;
+  });
 }
+
+export type { Task, TaskList, TaskListsResponse, TasksResponse } from "./schema";

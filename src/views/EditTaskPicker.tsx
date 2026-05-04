@@ -12,26 +12,17 @@ import { EditTaskForm } from "../components/EditTaskForm";
 import { getRememberedTaskListId, rememberTaskListId } from "../utils/storage";
 import { formatTaskRowSubtitle, matchesTaskSearch } from "../domain/format";
 import { directChildCountsInSet, formatHierarchyListTitle, indexTasksById, orderTasksForList, resolvedParentDisplayTitle } from "../domain/hierarchy";
-import * as api from "../services/google-tasks/api";
-import type { Task, TaskList } from "../types";
+import { getTasksEffect } from "../services/google-tasks/api";
+import { useTaskLists } from "../hooks/useTaskLists";
+import { runEffectPromise } from "../utils/effect-bridge";
+import type { Task } from "../services/google-tasks/schema";
 
 export function EditTaskPicker() {
   const { token } = getAccessToken();
   const { push } = useNavigation();
   const [listId, setListId] = useState("");
   const [searchText, setSearchText] = useState("");
-
-  const {
-    data: listsData,
-    isLoading: listsLoading,
-    revalidate: revalidateLists,
-  } = useCachedPromise(
-    async (accessToken: string) => api.getTaskLists(accessToken, { maxResults: 100 }),
-    [token],
-    { failureToastOptions: { title: "Could not load lists" } },
-  );
-
-  const lists = useMemo(() => listsData?.items ?? [], [listsData]);
+  const { lists, isLoading: listsLoading, revalidate: revalidateLists } = useTaskLists();
 
   useEffect(() => {
     if (listsLoading || lists.length === 0 || listId) return;
@@ -50,7 +41,7 @@ export function EditTaskPicker() {
   } = useCachedPromise(
     async (accessToken: string, lid: string) => {
       if (!lid) return { items: [] };
-      return api.getTasks(accessToken, lid, { maxResults: 100, showCompleted: true });
+      return runEffectPromise(accessToken, getTasksEffect(lid, { maxResults: 100, showCompleted: true }));
     },
     [token, listId],
     { execute: listId.length > 0, failureToastOptions: { title: "Could not load tasks" } },
@@ -67,10 +58,8 @@ export function EditTaskPicker() {
   const tasksRowsOrdered = useMemo(() => orderTasksForList(visibleTasks), [visibleTasks]);
   const visibleChildCounts = useMemo(() => directChildCountsInSet(visibleTasks), [visibleTasks]);
 
-  const listsWithIds = lists.filter((l) => l.id);
-
   const listAccessory =
-    listsWithIds.length > 0 && listId ? (
+    lists.length > 0 && listId ? (
       <List.Dropdown
         tooltip="Task list"
         value={listId}
@@ -79,13 +68,13 @@ export function EditTaskPicker() {
           void rememberTaskListId(v);
         }}
       >
-        {listsWithIds.map((l) => (
-          <List.Dropdown.Item key={l.id} value={l.id!} title={l.title ?? "Untitled"} />
+        {lists.map((l) => (
+          <List.Dropdown.Item key={l.id} value={l.id} title={l.title} />
         ))}
       </List.Dropdown>
     ) : null;
 
-  const resolvingList = listsWithIds.length > 0 && !listId && !listsLoading;
+  const resolvingList = lists.length > 0 && !listId && !listsLoading;
 
   return (
     <List
@@ -116,7 +105,7 @@ export function EditTaskPicker() {
       ) : (
         tasksRowsOrdered.map(({ task, depth }) => (
           <List.Item
-            key={task.id ?? task.title}
+            key={task.id}
             icon={task.status === "completed" ? Icon.Checkmark : Icon.Circle}
             title={formatHierarchyListTitle(depth, task.title ?? "")}
             subtitle={formatTaskRowSubtitle(task, resolvedParentDisplayTitle(task, taskByIdScope, idsInScope))}
@@ -152,7 +141,7 @@ export function EditTaskPicker() {
                           lists={lists}
                           initialListId={listId}
                           lockedParent={{
-                            id: task.id!,
+                            id: task.id,
                             title: task.title ?? "(No title)",
                           }}
                           onSaved={() => void revalidateTasks()}

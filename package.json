@@ -79,9 +79,11 @@
   "dependencies": {
     "@raycast/api": "^1.104.15",
     "@raycast/utils": "^2.2.4",
-    "chrono-node": "^2.9.0"
+    "chrono-node": "^2.9.0",
+    "effect": "^3.21.2"
   },
   "devDependencies": {
+    "@effect/language-service": "^0.85.1",
     "@types/node": "^22.13.10",
     "@types/react": "^19.0.10",
     "typescript": "^5.8.2"

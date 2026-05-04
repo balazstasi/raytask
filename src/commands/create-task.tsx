@@ -3,12 +3,13 @@ import { getAccessToken, useCachedPromise } from "@raycast/utils";
 import { useMemo } from "react";
 import { CreateTaskForm } from "../components/CreateTaskForm";
 import { useAuth } from "../hooks/useAuth";
-import * as api from "../services/google-tasks/api";
+import { getTaskListsEffect } from "../services/google-tasks/api";
+import { runEffectPromise } from "../utils/effect-bridge";
 
 function AuthenticatedCreateView() {
   const { token } = getAccessToken();
   const { data, isLoading } = useCachedPromise(
-    async (accessToken: string) => api.getTaskLists(accessToken, { maxResults: 100 }),
+    async (accessToken: string) => runEffectPromise(accessToken, getTaskListsEffect({ maxResults: 100 })),
     [token],
     { failureToastOptions: { title: "Could not load lists" } },
   );

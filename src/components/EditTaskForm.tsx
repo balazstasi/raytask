@@ -2,11 +2,11 @@ import { Action, ActionPanel, Form, Icon, Toast, showToast, useNavigation } from
 import { getAccessToken } from "@raycast/utils";
 import { useMemo } from "react";
 import * as api from "../services/google-tasks/api";
-import { moveTaskToAnotherList } from "../domain/move";
+import { moveTaskToAnotherListEffect } from "../domain/move";
 import { indexTasksById } from "../domain/hierarchy";
 import { dateToDueRFC3339, parseDueInput } from "../utils/date";
-import { showErrorToast } from "../utils/errors";
-import type { Task, TaskList } from "../types";
+import { runEffectWithToast } from "../utils/effect-bridge";
+import type { Task, TaskList } from "../services/google-tasks/schema";
 
 export type EditTaskFormProps = {
   taskListId: string;
@@ -71,43 +71,53 @@ export function EditTaskForm({ taskListId, task, lists, relationshipContext, onS
       resolvedDueDate = dueIsoToLocalDate(parsedIso);
     }
 
-    try {
-      const dueDayChanged = calendarDayKey(resolvedDueDate) !== calendarDayKey(initialDue);
-      const newDueIso = resolvedDueDate ? dateToDueRFC3339(resolvedDueDate) : undefined;
+    const dueDayChanged = calendarDayKey(resolvedDueDate) !== calendarDayKey(initialDue);
+    const newDueIso = resolvedDueDate ? dateToDueRFC3339(resolvedDueDate) : undefined;
 
-      if (values.listId !== taskListId && task.id) {
-        const updated: Task = {
-          ...task,
-          title,
-          notes: values.notes.trim() || undefined,
-          due: dueDayChanged ? newDueIso : task.due,
-          status: values.status === "completed" ? "completed" : "needsAction",
-        };
-        await moveTaskToAnotherList(token, taskListId, values.listId, updated);
-      } else {
-        if (!task.id) {
-          throw new Error("Task has no id");
-        }
-        const patch: Record<string, unknown> = {
-          title,
-          notes: values.notes.trim() || undefined,
-          status: values.status === "completed" ? "completed" : "needsAction",
-        };
-        if (dueDayChanged) {
-          patch.due = newDueIso ?? null;
-        }
-        await api.patchTask(token, taskListId, task.id, patch as Partial<Task>);
+    let effect;
+    if (values.listId !== taskListId && task.id) {
+      if (!relationshipContext?.length) {
+        await showToast({
+          style: Toast.Style.Failure,
+          title: "Could not move task",
+          message: "Reload the source list first so RayTask can preserve subtasks and avoid data loss.",
+        });
+        return;
       }
+      const updated: Task = {
+        ...task,
+        title,
+        notes: values.notes.trim() || undefined,
+        due: dueDayChanged ? newDueIso : task.due,
+        status: values.status === "completed" ? "completed" : "needsAction",
+      };
+      effect = moveTaskToAnotherListEffect(taskListId, values.listId, updated, relationshipContext);
+    } else {
+      if (!task.id) {
+        await showToast({ style: Toast.Style.Failure, title: "Task has no id" });
+        return;
+      }
+      const patch: Partial<Task> = {
+        title,
+        notes: values.notes.trim() || undefined,
+        status: values.status === "completed" ? "completed" : "needsAction",
+      };
+      if (dueDayChanged) {
+        patch.due = newDueIso ?? undefined;
+      }
+      effect = api.patchTaskEffect(taskListId, task.id, patch);
+    }
 
-      await showToast({ style: Toast.Style.Success, title: "Task updated" });
+    try {
+      await runEffectWithToast(token, effect, { successTitle: "Task updated", errorTitle: "Could not save task" });
       onSaved?.();
       pop();
-    } catch (e) {
-      await showErrorToast(e, "Could not save task");
+    } catch {
+      /* error already toasted */
     }
   }
 
-  const listItems = lists.filter((l) => l.id);
+  const listItems = lists;
 
   return (
     <Form
@@ -137,7 +147,7 @@ export function EditTaskForm({ taskListId, task, lists, relationshipContext, onS
       </Form.Dropdown>
       <Form.Dropdown id="listId" title="List" defaultValue={taskListId}>
         {listItems.map((l) => (
-          <Form.Dropdown.Item key={l.id} value={l.id!} title={l.title ?? "Untitled"} />
+          <Form.Dropdown.Item key={l.id} value={l.id} title={l.title} />
         ))}
       </Form.Dropdown>
     </Form>

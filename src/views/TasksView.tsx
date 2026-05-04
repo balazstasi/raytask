@@ -16,12 +16,12 @@ import * as api from "../services/google-tasks/api";
 import { CreateTaskForm } from "../components/CreateTaskForm";
 import { EditTaskForm } from "../components/EditTaskForm";
 import { looksLikeDailyRepeatTask } from "../domain/menu-bar-filter";
-import { moveTaskToAnotherList } from "../domain/move";
+import { moveTaskToAnotherListEffect } from "../domain/move";
 import { buildTaskDetailMarkdown, formatTaskRowSubtitle, matchesTaskSearch } from "../domain/format";
 import { directChildCountsInSet, formatHierarchyListTitle, indexTasksById, orderTasksForList, resolvedParentDisplayTitle } from "../domain/hierarchy";
-import { getTasksParamsForFilter, taskFilterLabel, type TaskFilter } from "../domain/filters";
-import { showErrorToast } from "../utils/errors";
-import type { Task, TaskList } from "../types";
+import { FILTERS, getTasksParamsForFilter, isTaskFilter, taskFilterLabel, type TaskFilter } from "../domain/filters";
+import { runEffectPromise, runEffectWithToast } from "../utils/effect-bridge";
+import type { Task, TaskList } from "../services/google-tasks/schema";
 
 export type TasksViewProps = {
   taskList: TaskList;
@@ -49,7 +49,7 @@ export function TasksView({ taskList, allLists, onListsChanged }: TasksViewProps
       if (!listId) {
         return { items: [] };
       }
-      return api.getTasks(accessToken, listId, params);
+      return runEffectPromise(accessToken, api.getTasksEffect(listId, params));
     },
     [token, taskListId, listParams],
     {
@@ -89,17 +89,17 @@ export function TasksView({ taskList, allLists, onListsChanged }: TasksViewProps
 
   async function toggleComplete(task: Task) {
     if (!task.id) return;
+    const effect =
+      task.status === "completed"
+        ? api.patchTaskEffect(taskListId, task.id, { status: "needsAction" })
+        : api.completeTaskEffect(taskListId, task.id);
+
     try {
-      if (task.status === "completed") {
-        await api.patchTask(token, taskListId, task.id, { status: "needsAction" });
-      } else {
-        await api.completeTask(token, taskListId, task.id);
-      }
-      await showToast({ style: Toast.Style.Success, title: "Updated" });
+      await runEffectWithToast(token, effect, { successTitle: "Updated", errorTitle: "Could not update task" });
       await revalidateTasks();
       onListsChanged?.();
-    } catch (e) {
-      await showErrorToast(e, "Could not update task");
+    } catch {
+      /* error already toasted */
     }
   }
 
@@ -115,24 +115,29 @@ export function TasksView({ taskList, allLists, onListsChanged }: TasksViewProps
     });
     if (!ok) return;
     try {
-      await api.deleteTask(token, taskListId, task.id);
-      await showToast({ style: Toast.Style.Success, title: "Deleted" });
+      await runEffectWithToast(token, api.deleteTaskEffect(taskListId, task.id), {
+        successTitle: "Deleted",
+        errorTitle: "Could not delete task",
+      });
       await revalidateTasks();
       onListsChanged?.();
-    } catch (e) {
-      await showErrorToast(e, "Could not delete task");
+    } catch {
+      /* error already toasted */
     }
   }
 
   async function moveTo(task: Task, targetListId: string) {
     if (!task.id || targetListId === taskListId) return;
     try {
-      await moveTaskToAnotherList(token, taskListId, targetListId, task);
-      await showToast({ style: Toast.Style.Success, title: "Moved" });
+      await runEffectWithToast(
+        token,
+        moveTaskToAnotherListEffect(taskListId, targetListId, task, tasksRaw),
+        { successTitle: "Moved", errorTitle: "Could not move task" },
+      );
       await revalidateTasks();
       onListsChanged?.();
-    } catch (e) {
-      await showErrorToast(e, "Could not move task");
+    } catch {
+      /* error already toasted */
     }
   }
 
@@ -140,13 +145,16 @@ export function TasksView({ taskList, allLists, onListsChanged }: TasksViewProps
     <List.Dropdown
       tooltip="Filter"
       value={filter}
-      onChange={(v) => setFilter(v as TaskFilter)}
+      onChange={(v) => {
+        if (isTaskFilter(v)) {
+          setFilter(v);
+        }
+      }}
       storeValue
     >
-      <List.Dropdown.Item value="all" title={taskFilterLabel("all")} />
-      <List.Dropdown.Item value="today" title={taskFilterLabel("today")} />
-      <List.Dropdown.Item value="upcoming" title={taskFilterLabel("upcoming")} />
-      <List.Dropdown.Item value="completed" title={taskFilterLabel("completed")} />
+      {FILTERS.map((value) => (
+        <List.Dropdown.Item key={value} value={value} title={taskFilterLabel(value)} />
+      ))}
     </List.Dropdown>
   );
 
@@ -264,7 +272,7 @@ export function TasksView({ taskList, allLists, onListsChanged }: TasksViewProps
                           lists={allLists}
                           initialListId={taskListId}
                           lockedParent={{
-                            id: task.id!,
+                            id: task.id,
                             title: task.title ?? "(No title)",
                           }}
                           onSaved={() => {
@@ -282,7 +290,7 @@ export function TasksView({ taskList, allLists, onListsChanged }: TasksViewProps
                       key={l.id}
                       title={`Move to ${l.title ?? "List"}`}
                       icon={Icon.ArrowRight}
-                      onAction={() => void moveTo(task, l.id!)}
+                      onAction={() => void moveTo(task, l.id)}
                     />
                   ))}
                 </ActionPanel.Section>

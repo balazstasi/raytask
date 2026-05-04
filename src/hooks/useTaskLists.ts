@@ -1,11 +1,15 @@
 import { getAccessToken, useCachedPromise } from "@raycast/utils";
-import { getTaskLists } from "../services/google-tasks/api";
+import { useMemo } from "react";
+import { getTaskListsEffect } from "../services/google-tasks/api";
+import { runEffectPromise } from "../utils/effect-bridge";
 
-export function useTaskLists() {
+export function useTaskLists(failureTitle = "Could not load lists") {
   const { token } = getAccessToken();
-  return useCachedPromise(
-    async (accessToken: string) => getTaskLists(accessToken, { maxResults: 100 }),
+  const query = useCachedPromise(
+    async (accessToken: string) => runEffectPromise(accessToken, getTaskListsEffect({ maxResults: 100 })),
     [token],
-    { failureToastOptions: { title: "Could not load lists" } },
+    { failureToastOptions: { title: failureTitle } },
   );
+  const lists = useMemo(() => query.data?.items ?? [], [query.data]);
+  return { ...query, lists };
 }

@@ -12,8 +12,8 @@ import { useMemo, useState } from "react";
 import * as api from "../services/google-tasks/api";
 import { dateToDueRFC3339, parseDueInput } from "../utils/date";
 import { rememberTaskListId } from "../utils/storage";
-import { showErrorToast } from "../utils/errors";
-import type { Task, TaskList } from "../types";
+import { runEffectPromise, runEffectWithToast } from "../utils/effect-bridge";
+import type { Task, TaskList } from "../services/google-tasks/schema";
 
 export type CreateTaskFormProps = {
   lists: TaskList[];
@@ -27,7 +27,7 @@ export function CreateTaskForm({ lists, initialListId, lockedParent, onSaved }: 
   const { token } = getAccessToken();
   const { pop } = useNavigation();
 
-  const listItems = useMemo(() => lists.filter((l) => l.id), [lists]);
+  const listItems = useMemo(() => lists, [lists]);
   const defaultListFromProps =
     initialListId && listItems.some((l) => l.id === initialListId) ?
       initialListId
@@ -41,7 +41,7 @@ export function CreateTaskForm({ lists, initialListId, lockedParent, onSaved }: 
   const { data: tasksData, isLoading: tasksLoading } = useCachedPromise(
     async (accessToken: string, lid: string) => {
       if (!lid || lockedParent) return { items: [] as Task[] };
-      return api.getTasks(accessToken, lid, { maxResults: 100, showCompleted: false });
+      return runEffectPromise(accessToken, api.getTasksEffect(lid, { maxResults: 100, showCompleted: false }));
     },
     [token, listId],
     { execute: listId.length > 0 && !lockedParent },
@@ -90,21 +90,21 @@ export function CreateTaskForm({ lists, initialListId, lockedParent, onSaved }: 
       (values.parentId && values.parentId !== "__none__" ? values.parentId : undefined);
 
     try {
-      await api.createTask(token, lid, {
-        title,
-        notes: values.notes.trim() || undefined,
-        due: dueIso,
-        parent,
-      });
+      await runEffectWithToast(
+        token,
+        api.createTaskEffect(lid, {
+          title,
+          notes: values.notes.trim() || undefined,
+          due: dueIso,
+          parent,
+        }),
+        { successTitle: lockedParent ? "Subtask created" : "Task created", errorTitle: "Could not create task" },
+      );
       await rememberTaskListId(lid);
-      await showToast({
-        style: Toast.Style.Success,
-        title: lockedParent ? "Subtask created" : "Task created",
-      });
       onSaved?.();
       pop();
-    } catch (e) {
-      await showErrorToast(e, "Could not create task");
+    } catch {
+      /* error already toasted */
     }
   }
 
@@ -147,14 +147,14 @@ export function CreateTaskForm({ lists, initialListId, lockedParent, onSaved }: 
         onChange={lockedParent ? undefined : setListId}
       >
         {listDropdownItems.map((l) => (
-          <Form.Dropdown.Item key={l.id} value={l.id!} title={l.title ?? "Untitled"} />
+          <Form.Dropdown.Item key={l.id} value={l.id} title={l.title} />
         ))}
       </Form.Dropdown>
       {!lockedParent ? (
         <Form.Dropdown id="parentId" title="Parent task" defaultValue="__none__">
           <Form.Dropdown.Item value="__none__" title="None" />
           {parentCandidates.map((t) => (
-            <Form.Dropdown.Item key={t.id} value={t.id!} title={t.title ?? "(No title)"} />
+            <Form.Dropdown.Item key={t.id} value={t.id} title={t.title} />
           ))}
         </Form.Dropdown>
       ) : null}

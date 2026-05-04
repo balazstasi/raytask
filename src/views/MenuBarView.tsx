@@ -1,11 +1,9 @@
 import {
   Icon,
   MenuBarExtra,
-  Toast,
   launchCommand,
   LaunchType,
   openExtensionPreferences,
-  showToast,
 } from "@raycast/api";
 import { getAccessToken, useCachedPromise } from "@raycast/utils";
 import { useCallback, useMemo } from "react";
@@ -15,11 +13,12 @@ import {
   taskMatchesMenuBarTodayAgenda,
   todayLocalCalendarDate,
 } from "../domain/menu-bar-filter";
+import { useTaskLists } from "../hooks/useTaskLists";
 import { getRememberedTaskListId } from "../utils/storage";
 import { indexTasksById, resolvedParentDisplayTitle } from "../domain/hierarchy";
-import { showErrorToast } from "../utils/errors";
-import * as api from "../services/google-tasks/api";
-import type { Task, TaskList } from "../types";
+import { runEffectWithToast, runEffectPromise } from "../utils/effect-bridge";
+import { getTasksAllPagesEffect, getTasksEffect, patchTaskEffect, completeTaskEffect } from "../services/google-tasks/api";
+import type { Task, TaskList } from "../services/google-tasks/schema";
 
 async function resolveDefaultListId(lists: TaskList[]): Promise<string> {
   const remembered = await getRememberedTaskListId();
@@ -29,20 +28,18 @@ async function resolveDefaultListId(lists: TaskList[]): Promise<string> {
   return lists.find((l) => l.id)?.id ?? "";
 }
 
+function endOfTodayLocalIso(): string {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999).toISOString();
+}
+
+function dedupeTasks(tasks: Task[]): Task[] {
+  return [...new Map(tasks.map((task) => [task.id, task])).values()];
+}
+
 export function MenuBarView() {
   const { token } = getAccessToken();
-
-  const {
-    data: listsData,
-    isLoading: listsLoading,
-    revalidate: revalidateLists,
-  } = useCachedPromise(
-    async (accessToken: string) => api.getTaskLists(accessToken, { maxResults: 100 }),
-    [token],
-    { failureToastOptions: { title: "Could not load lists" } },
-  );
-
-  const lists = useMemo(() => listsData?.items ?? [], [listsData]);
+  const { lists, isLoading: listsLoading, revalidate: revalidateLists } = useTaskLists();
 
   const defaultListQuery = useCachedPromise(
     async (_accessToken: string, loadedLists: TaskList[]) => resolveDefaultListId(loadedLists),
@@ -61,12 +58,28 @@ export function MenuBarView() {
   } = useCachedPromise(
     async (accessToken: string, lid: string) => {
       if (!lid) return { items: [] as Task[] };
-      const items = await api.getTasksAllPages(accessToken, lid, {
-        maxResults: 100,
-        showCompleted: true,
-        showHidden: true,
-      });
-      return { items };
+
+      const [dueTasks, dailyRepeatCandidates] = await Promise.all([
+        runEffectPromise(
+          accessToken,
+          getTasksAllPagesEffect(lid, {
+            maxResults: 100,
+            dueMax: endOfTodayLocalIso(),
+            showCompleted: true,
+            showHidden: true,
+          }),
+        ),
+        runEffectPromise(
+          accessToken,
+          getTasksEffect(lid, {
+            maxResults: 100,
+            showCompleted: false,
+            showHidden: false,
+          }),
+        ),
+      ]);
+
+      return { items: dedupeTasks([...dueTasks, ...(dailyRepeatCandidates.items ?? [])]) };
     },
     [token, listId],
     {
@@ -85,7 +98,7 @@ export function MenuBarView() {
 
   const agendaToday = todayLocalCalendarDate();
 
-  /** Broad fetch + client filter: due <= today (calendar), plus daily-repeat hints without due (API has no RRULE). */
+  /** Bounded fetch for due/overdue work, plus a small undated scan for daily-repeat hints (API exposes no recurrence). */
   const todayTasksOrdered = useMemo(() => {
     const filtered = tasks.filter((t) => taskMatchesMenuBarTodayAgenda(t, agendaToday));
     filtered.sort((a, b) => sortTasksForMenuBarToday(a, b, agendaToday));
@@ -96,15 +109,16 @@ export function MenuBarView() {
     async (task: Task) => {
       if (!task.id || !listId) return;
       const done = task.status === "completed";
+      const effect = done
+        ? patchTaskEffect(listId, task.id, { status: "needsAction" })
+        : completeTaskEffect(listId, task.id);
       try {
-        if (done) {
-          await api.patchTask(token, listId, task.id, { status: "needsAction" });
-        } else {
-          await api.completeTask(token, listId, task.id);
-        }
+        await runEffectWithToast(token, effect, {
+          errorTitle: done ? "Could not reopen task" : "Could not complete task",
+        });
         await revalidateTasks();
-      } catch (e) {
-        await showErrorToast(e, done ? "Could not reopen task" : "Could not complete task");
+      } catch {
+        /* error already toasted */
       }
     },
     [token, listId, revalidateTasks],
@@ -114,7 +128,7 @@ export function MenuBarView() {
     listsLoading || defaultListQuery.isLoading || (listId.length > 0 && tasksLoading);
 
   return (
-    <MenuBarExtra icon="icon.png" isLoading={loading} tooltip="RayTask · Today & overdue">
+    <MenuBarExtra icon={Icon.CircleFilled} isLoading={loading} tooltip="RayTask · Today & overdue">
       <MenuBarExtra.Item
         title="Open Google Tasks"
         onAction={() => launchCommand({ name: "index", type: LaunchType.UserInitiated })}

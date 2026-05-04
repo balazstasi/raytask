@@ -6,12 +6,13 @@ import {
 } from "@raycast/api";
 import type { LaunchProps } from "@raycast/api";
 import { getAccessToken, useCachedPromise } from "@raycast/utils";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAuth } from "../hooks/useAuth";
+import { useTaskLists } from "../hooks/useTaskLists";
 import * as api from "../services/google-tasks/api";
 import { parseDueInput } from "../utils/date";
 import { getRememberedTaskListId, rememberTaskListId } from "../utils/storage";
-import { showErrorToast } from "../utils/errors";
+import { runEffectWithToast } from "../utils/effect-bridge";
 
 function QuickAddInner(props: LaunchProps<{ arguments: Arguments.QuickAdd }>) {
   const { token } = getAccessToken();
@@ -20,12 +21,7 @@ function QuickAddInner(props: LaunchProps<{ arguments: Arguments.QuickAdd }>) {
 
   const ran = useRef(false);
   const [busy, setBusy] = useState(true);
-
-  const { data: listsData, isLoading: listsLoading } = useCachedPromise(
-    async (accessToken: string) => api.getTaskLists(accessToken, { maxResults: 100 }),
-    [token],
-    { failureToastOptions: { title: "Could not load lists" } },
-  );
+  const { lists, isLoading: listsLoading } = useTaskLists();
 
   useEffect(() => {
     if (listsLoading || ran.current) return;
@@ -38,7 +34,6 @@ function QuickAddInner(props: LaunchProps<{ arguments: Arguments.QuickAdd }>) {
           return;
         }
 
-        const lists = listsData?.items ?? [];
         if (lists.length === 0) {
           await showToast({ style: Toast.Style.Failure, title: "No task lists" });
           return;
@@ -53,21 +48,22 @@ function QuickAddInner(props: LaunchProps<{ arguments: Arguments.QuickAdd }>) {
           return;
         }
 
-        await api.createTask(token, listId, {
-          title: titleArg,
-          due: dueParsed,
-        });
-        await rememberTaskListId(listId);
-        await showToast({ style: Toast.Style.Success, title: "Task added" });
-      } catch (e) {
-        await showErrorToast(e, "Could not create task");
-        await new Promise((r) => setTimeout(r, 2000));
+        try {
+          await runEffectWithToast(
+            token,
+            api.createTaskEffect(listId, { title: titleArg, due: dueParsed }),
+            { successTitle: "Task added", errorTitle: "Could not create task" },
+          );
+          await rememberTaskListId(listId);
+        } catch {
+          /* error already toasted */
+        }
       } finally {
         setBusy(false);
         await popToRoot();
       }
     })();
-  }, [listsLoading, listsData, titleArg, dueParsed, token]);
+  }, [listsLoading, lists, titleArg, dueParsed, token]);
 
   const markdown = titleArg ? `Adding **${titleArg}**…` : `# Quick Add\n\nMissing title argument.`;
 

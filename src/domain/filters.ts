@@ -1,6 +1,12 @@
 import type { ListTasksParams } from "../services/google-tasks/api";
 
-export type TaskFilter = "all" | "today" | "upcoming" | "completed";
+export const FILTERS = ["all", "today", "upcoming", "completed"] as const;
+
+export type TaskFilter = (typeof FILTERS)[number];
+
+export function isTaskFilter(value: string): value is TaskFilter {
+  return FILTERS.includes(value as TaskFilter);
+}
 
 export function taskFilterLabel(f: TaskFilter): string {
   switch (f) {

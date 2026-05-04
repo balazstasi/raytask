@@ -1,29 +1,11 @@
 import { Action, ActionPanel, Icon, Keyboard, List, useNavigation } from "@raycast/api";
-import { getAccessToken, useCachedPromise } from "@raycast/utils";
-import { useMemo } from "react";
-import * as api from "../services/google-tasks/api";
+import { useTaskLists } from "../hooks/useTaskLists";
 import { rememberTaskListId } from "../utils/storage";
 import { TasksView } from "./TasksView";
 
 export function TaskListsView() {
   const { push } = useNavigation();
-  const { token } = getAccessToken();
-
-  const {
-    isLoading,
-    data: listsData,
-    revalidate: revalidateLists,
-  } = useCachedPromise(
-    async (accessToken: string) => api.getTaskLists(accessToken, { maxResults: 100 }),
-    [token],
-    {
-      failureToastOptions: {
-        title: "Could not load task lists",
-      },
-    },
-  );
-
-  const taskLists = useMemo(() => listsData?.items ?? [], [listsData]);
+  const { lists: taskLists, isLoading, revalidate: revalidateLists } = useTaskLists("Could not load task lists");
 
   return (
     <List
@@ -49,9 +31,9 @@ export function TaskListsView() {
       ) : (
         taskLists.map((list) => (
           <List.Item
-            key={list.id ?? list.title}
+            key={list.id}
             icon={Icon.List}
-            title={list.title || "Untitled list"}
+            title={list.title}
             subtitle={list.updated ? `Updated ${new Date(list.updated).toLocaleDateString()}` : undefined}
             actions={
               <ActionPanel>
