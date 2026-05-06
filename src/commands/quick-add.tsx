@@ -1,11 +1,6 @@
-import {
-  Detail,
-  Toast,
-  popToRoot,
-  showToast,
-} from "@raycast/api";
+import { Detail, Toast, popToRoot, showToast } from "@raycast/api";
 import type { LaunchProps } from "@raycast/api";
-import { getAccessToken, useCachedPromise } from "@raycast/utils";
+import { getAccessToken } from "@raycast/utils";
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "../hooks/useAuth";
 import { useTaskLists } from "../hooks/useTaskLists";
@@ -17,7 +12,8 @@ import { runEffectWithToast } from "../utils/effect-bridge";
 function QuickAddInner(props: LaunchProps<{ arguments: Arguments.QuickAdd }>) {
   const { token } = getAccessToken();
   const titleArg = props.arguments.title?.trim() ?? "";
-  const dueParsed = parseDueInput(props.arguments.due);
+  const dueInput = props.arguments.due?.trim() ?? "";
+  const dueParsed = dueInput ? parseDueInput(dueInput) : undefined;
 
   const ran = useRef(false);
   const [busy, setBusy] = useState(true);
@@ -31,6 +27,15 @@ function QuickAddInner(props: LaunchProps<{ arguments: Arguments.QuickAdd }>) {
       try {
         if (!titleArg) {
           await showToast({ style: Toast.Style.Failure, title: "Title is required" });
+          return;
+        }
+
+        if (dueInput && !dueParsed) {
+          await showToast({
+            style: Toast.Style.Failure,
+            title: "Could not parse due date",
+            message: "Try a phrase like “tomorrow” or a calendar date like 2026-05-15 (dates only; time is not saved).",
+          });
           return;
         }
 
@@ -63,7 +68,7 @@ function QuickAddInner(props: LaunchProps<{ arguments: Arguments.QuickAdd }>) {
         await popToRoot();
       }
     })();
-  }, [listsLoading, lists, titleArg, dueParsed, token]);
+  }, [dueInput, dueParsed, listsLoading, lists, titleArg, token]);
 
   const markdown = titleArg ? `Adding **${titleArg}**…` : `# Quick Add\n\nMissing title argument.`;
 
